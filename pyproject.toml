@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "qsgrc"
+version = "0.1.0"
+description = "QSG's 24hr of Lemons Race Computer Software for Car and Pit"
+authors = ["Alex Hirschfeld <alex@d-qoi.com>"]
+license = "GNU GPLv3"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+websockets = "^14.2"
+fastapi = {extras = ["standard"], version = "^0.115.8"}
+pydantic-settings = "^2.7.1"
+pyzmq = "^26.2.1"
+obd = "^0.7.2"
+pyserial = "^3.5"
+
+[tool.poetry.requires-plugins]
+poetry-multiproject-plugin = "^1.8.3"
+poetry-polylith-plugin = "^1.36.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pyright]
+extraPaths = ["bases", "components"]

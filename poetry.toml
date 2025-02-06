@@ -1,0 +1,3 @@
+[virtualenvs]
+path = ".qsg_venv"
+in-project = true
