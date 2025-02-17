@@ -14,6 +14,6 @@ def get_logger(name, handler:logging.Handler|None = None) -> logging.Logger:
     if handler:
         logger.addHandler(handler)
 
-    logger.setLevel(config.log_level)
+    logger.setLevel(config.log_level.upper())
 
     return logger
