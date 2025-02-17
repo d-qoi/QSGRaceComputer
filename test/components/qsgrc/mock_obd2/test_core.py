@@ -1,4 +1,4 @@
-from qsgrc.log2 import core
+from qsgrc.mock_obd2 import core
 
 
 def test_sample():
