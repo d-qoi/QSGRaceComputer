@@ -25,7 +25,7 @@ class Config(BaseSettings):
             value = value.upper()
         return LogLevel(value)
 
-    valkey_url: ValkeyDns = ValkeyDns("valkey://localhost")
+    valkey_url: ValkeyDns = ValkeyDns("valkey://localhost:6379")
     valkey_log_sink: str = "log_sink"
     valkey_data_sink: str = "datalog"
 

@@ -20,6 +20,7 @@ obd = "^0.7.2"
 pyserial = "^3.5"
 valkey = "^6.0.2"
 psutil = "^6.1.1"
+pyserial-asyncio = "^0.6"
 
 [tool.poetry.requires-plugins]
 poetry-multiproject-plugin = "^1.8.3"
