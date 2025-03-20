@@ -219,6 +219,21 @@ uvicorn = {version = ">=0.15.0", extras = ["standard"]}
 standard = ["uvicorn[standard] (>=0.15.0)"]
 
 [[package]]
+name = "fastapi-sse"
+version = "1.1.1"
+description = "A tiny library for sending Server-Sent Events (SSE) in FastAPI"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "fastapi_sse-1.1.1-py3-none-any.whl", hash = "sha256:b006a33001f076fccf67957e65b0975c31b91c77cc6c13ee161a9b6c5412d330"},
+    {file = "fastapi_sse-1.1.1.tar.gz", hash = "sha256:d9da5a49cd5a84f0d976f7d593b1e08d6c16012881a1145a7b01e49527e6e355"},
+]
+
+[package.dependencies]
+fastapi = ">=0.51.0"
+
+[[package]]
 name = "h11"
 version = "0.14.0"
 description = "A pure-Python, bring-your-own-I/O implementation of HTTP/1.1"
@@ -1322,4 +1337,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "0f0e1ec81d8800e5b69e6d717e91247fcfb89d9e2f69f5ef532987dddb0330ba"
+content-hash = "a82c6debb3e2d445bf5d3c66dcd5d71c817fc7112404d1ec6300b88a4b109927"
