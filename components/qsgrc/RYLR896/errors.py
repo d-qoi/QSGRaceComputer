@@ -10,6 +10,16 @@ class ATCommandError(Exception):
     def __str__(self):
         return f"+ERR={self.code}: {self.message or self.__doc__}"
 
+class RecLoopNotRunning(ATCommandError):
+    """Rec Loop Not Running"""
+
+    code = -1
+
+class NotReady(ATCommandError):
+    """Not Ready"""
+
+    code = -1
+
 
 class NoTerminatorError(ATCommandError):
     """No 'enter' or \r\n' at the end of the command"""
@@ -78,6 +88,6 @@ ERROR_MAP = {
 }
 
 
-def raise_by_code(code: int):
+def get_error_by_code(code: int):
     exception_class = ERROR_MAP.get(code, UnknownError)
-    raise exception_class()
+    return exception_class()
