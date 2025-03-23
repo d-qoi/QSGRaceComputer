@@ -1,11 +1,13 @@
 from re import compile
+from typing import Any
 
 from pydantic import BaseModel
+
 
 class BaseMessage:
     leader: str = "0"
     name: str = ""
-    value: str= ""
+    value: Any = None
 
     match_re = compile(r"([A-Z0-9]+):([a-zA-Z0-9]+)=(.*)")
 
@@ -29,19 +31,38 @@ class BaseMessage:
         return f"{type(self)} :: {self.__str__()}"
 
 
-class OBD2Datapoint:
+class OBD2Datapoint(BaseMessage):
+    leader = "OBD2dp"
     field: str
     value: float
 
-class OBD2Message(BaseModel):
-    data: list[OBD2Datapoint]
+    def __init__(self, field, value) -> None:
+        self.field = field
+        self.value = value
+
+    def __str__(self) -> str:
+        return f"{self.field}={self.value}"
+
+    @classmethod
+    def unpack(cls, data) -> OBD2Datapoint:
+        field, value = data.split("=")
+        return cls(field, value)
+
+
+class OBD2Message(BaseMessage):
+    leader = "OBD2"
+    value: list[OBD2Datapoint]
+
+    @classmethod
+    def unpack(cls, data):
+        pass
+
 
 class SSEMessage(BaseModel):
     event: str
     value: str
 
+
 class SSECloseStream(SSEMessage):
     pass
 
-def unpack(data: str) -> BaseModel:
-    pass
