@@ -1,4 +1,4 @@
-from qsgrc.monitor.obd2 import core
+from qsgrc.monitor.obd2.core import OBD2Monitor
 from qsgrc.monitor.obd2.command_mapping import COMMAND_MAP
 
-__all__ = ["core", "COMMAND_MAP"]
+__all__ = ["OBD2Monitor", "COMMAND_MAP"]

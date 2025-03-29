@@ -11,6 +11,7 @@ from asyncio import (
 from typing import Any, Optional, Callable, Tuple, List, cast
 
 from obd import OBD, OBDStatus, OBDResponse
+from obd import commands as OBDCommands
 
 from qsgrc.log import get_logger
 
@@ -212,7 +213,7 @@ class OBD2Monitor(OBD):
                 (cmd, callback) = next_command
                 try:
                     logger.debug(f"Executing command: {cmd}")
-                    resp = self.query(cmd)
+                    resp = self.query(OBDCommands[cmd])
                     # If there is a callback, call it
                     if callback:
                         logger.debug(f"Calling callback for command: {cmd}")

@@ -181,4 +181,3 @@ COMMAND_MAP = {
 for command in chain(*obd.commands.modes):
     if command and command.name not in COMMAND_MAP:
         COMMAND_MAP[command.name] = command.name
-        print(command.name)
