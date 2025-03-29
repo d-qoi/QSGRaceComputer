@@ -10,7 +10,7 @@ from asyncio import (
     sleep,
 )
 from time import perf_counter
-from typing import Any, Coroutine, Optional, Callable
+from typing import Any, Coroutine, Optional, Callable, Tuple
 
 from obd import OBD, OBDCommand, OBDResponse
 
@@ -18,6 +18,10 @@ from qsgrc.log import get_logger
 
 logger = get_logger("mon.obd2")
 
+
+CommandCallback = Optional[Callable[[OBDResponse], None]]
+CommandTuple = Tuple[str, CommandCallback]
+ResponseTuple = Tuple[str, OBDResponse]
 
 class OBD2Monitor(OBD):
     def __init__(
@@ -34,11 +38,11 @@ class OBD2Monitor(OBD):
         self.__tasks: list[Task] = []
         self.__running: bool = False
         self.__delay_cmds: float = delay_cmds
-        self.__command_response: Queue[tuple[str, Any]] = Queue()
+        self.__command_response: Queue[ResponseTuple] = Queue()
         # command queues
-        self.high_priority: list[tuple[str, Optional[Callable]]] = []
-        self.low_priority: list[tuple[str, Optional[Callable]]] = []
-        self.oneshot_queue: Queue[tuple[str, Callable[[OBDResponse], None]]] = Queue()
+        self.high_priority: list[CommandTuple] = []
+        self.low_priority: list[CommandTuple] = []
+        self.oneshot_queue: Queue[CommandTuple] = Queue()
 
         # self.conn = OBD(
         #     portstr=portstr,
@@ -49,6 +53,7 @@ class OBD2Monitor(OBD):
         #     check_voltage=check_voltage,
         #     start_low_power=start_low_power,
         # )
+        logger.info(f"Initializing OBD2Monitor with port={portstr}, baudrate={baudrate}, protocol={protocol}")
         super().__init__(
             portstr=portstr,
             baudrate=baudrate,
