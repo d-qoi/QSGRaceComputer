@@ -187,19 +187,21 @@ class OBD2Monitor(OBD):
             elif not high_priority.empty():
                 logger.debug("Processing from high priority queue")
                 next_command = await high_priority.get()
-            # Low Priority Command, one will run every time the high priority queue empties
-            elif not low_priority.empty():
-                logger.debug("Processing from low priority queue")
-                next_command = await low_priority.get()
 
             # Refill High Priority Command
             # Commands added/removed before the queue is done do not matter.
             if high_priority.empty():
+                # Low Priority Command, one will run every time the high priority queue empties
+                if not low_priority.empty() and next_command is None:
+                    logger.debug("Processing from low priority queue")
+                    next_command = await low_priority.get()
+
                 logger.debug(
                     f"Refilling high priority queue with {len(self.high_priority)} commands"
                 )
                 for command in self.high_priority:
                     high_priority.put_nowait(command)
+
             # Refill the low priority commands
             # Commands added/removed before the queue is done do not matter.
             if low_priority.empty():

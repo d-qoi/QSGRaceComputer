@@ -7,7 +7,7 @@ from qsgrc.monitor.obd2 import OBD2Monitor
 async def test_obd2_monitor():
     # Initialize monitor with a mock port for testing
     # For actual hardware, use your port like "/dev/ttyUSB0"
-    monitor = OBD2Monitor(portstr="TEST", fast=True)
+    monitor = OBD2Monitor()
 
     # Add commands to priority queues
     monitor.add_high_priority("SPEED")
