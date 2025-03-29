@@ -1,5 +1,6 @@
 from asyncio import Condition, TaskGroup
 import asyncio
+from random import randrange
 
 async def multiple_waiters_example():
     condition = asyncio.Condition()
@@ -12,13 +13,14 @@ async def multiple_waiters_example():
             await condition.wait()
             print(f"{name} was notified and reacquired lock")
             # Now can safely access shared data
+            await asyncio.sleep(randrange(1,4))
             print(f"{name} sees data: {data}")
             # Process for a bit while holding the lock
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(randrange(1,4))
             print(f"{name} releasing lock")
     
     async def notifier():
-        await asyncio.sleep(0.5)  # Let waiters queue up
+        await asyncio.sleep(1)  # Let waiters queue up
         print("Notifier waiting to acquire lock")
         async with condition:
             print("Notifier acquired lock")
