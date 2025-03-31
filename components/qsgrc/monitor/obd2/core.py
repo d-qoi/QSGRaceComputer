@@ -8,6 +8,8 @@ from asyncio import (
     sleep,
 )
 
+import logging
+
 from typing import Any, Optional, Callable, Tuple, List, cast
 
 from obd import OBD, OBDStatus, OBDResponse
@@ -16,6 +18,7 @@ from obd import commands as OBDCommands
 from qsgrc.log import get_logger
 
 logger = get_logger("mon.obd2")
+logger.setLevel(logging.DEBUG)
 
 CommandCallback = Optional[Callable[[OBDResponse], None]]
 CommandTuple = Tuple[str, CommandCallback]
@@ -169,6 +172,9 @@ class OBD2Monitor(OBD):
     async def responses(self) -> ResponseTuple:
         return await self.__command_response.get()
 
+    def set_delay(self, delay: float):
+        self.__delay_cmds = delay
+
     async def __run_loop(self) -> None:
         """Main command processing loop"""
         logger.info("Starting command processing loop")
@@ -190,7 +196,7 @@ class OBD2Monitor(OBD):
 
             # Refill High Priority Command
             # Commands added/removed before the queue is done do not matter.
-            if high_priority.empty():
+            else:
                 # Low Priority Command, one will run every time the high priority queue empties
                 if not low_priority.empty() and next_command is None:
                     logger.debug("Processing from low priority queue")
@@ -202,14 +208,14 @@ class OBD2Monitor(OBD):
                 for command in self.high_priority:
                     high_priority.put_nowait(command)
 
-            # Refill the low priority commands
-            # Commands added/removed before the queue is done do not matter.
-            if low_priority.empty():
-                logger.debug(
-                    f"Refilling low priority queue with {len(self.low_priority)} commands"
-                )
-                for command in self.low_priority:
-                    low_priority.put_nowait(command)
+                # Refill the low priority commands
+                # Commands added/removed before the queue is done do not matter.
+                if low_priority.empty():
+                    logger.debug(
+                        f"Refilling low priority queue with {len(self.low_priority)} commands"
+                    )
+                    for command in self.low_priority:
+                        low_priority.put_nowait(command)
 
             if next_command:
                 (cmd, callback) = next_command

@@ -1,7 +1,15 @@
+from enum import Enum
 from re import compile
 from typing import Any
 
 from pydantic import BaseModel
+
+class MonitorAlertConditions(Enum):
+    GT = 1
+    GTE = 2
+    LT = 3
+    LTE = 4
+    EQ = 5
 
 
 class BaseMessage:
@@ -44,7 +52,7 @@ class OBD2Datapoint(BaseMessage):
         return f"{self.field}={self.value}"
 
     @classmethod
-    def unpack(cls, data) -> OBD2Datapoint:
+    def unpack(cls, data) -> "OBD2Datapoint":
         field, value = data.split("=")
         return cls(field, value)
 

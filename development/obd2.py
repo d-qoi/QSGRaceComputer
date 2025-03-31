@@ -20,6 +20,9 @@ async def test_obd2_monitor():
     # Start the monitor
     await monitor.start()
 
+    print(monitor.high_priority)
+    print(monitor.low_priority)
+
     # Process responses for 15 seconds
     try:
         end_time = asyncio.get_event_loop().time() + 15
