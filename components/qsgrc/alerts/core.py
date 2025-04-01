@@ -54,7 +54,7 @@ class MonitorAlerts:
         if condition is AlertConditions.EQ:
             alert = value == threshold
         # Alert condition is already set
-        if self.alert_conditions[listen_to]:
+        if self.alert_conditions.get(listen_to, False):
             if alert:
                 return
             elif hold:
