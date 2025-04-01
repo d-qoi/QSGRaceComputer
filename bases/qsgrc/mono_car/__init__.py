@@ -1,3 +1,3 @@
-from qsgrc.mono.car import core
+from qsgrc.mono_car import core
 
 __all__ = ["core"]

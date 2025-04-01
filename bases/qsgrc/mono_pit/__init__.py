@@ -1,3 +1,3 @@
-from qsgrc.mono.pit import core
+from qsgrc.mono_pit import core
 
 __all__ = ["core"]
