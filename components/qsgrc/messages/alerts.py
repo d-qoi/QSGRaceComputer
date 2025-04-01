@@ -14,15 +14,17 @@ class AlertConditions(Enum):
 class AlertMessage(BaseMessage):
     leader = "A"
     listen_to: str = ""
+    triggered: bool = False
     val: Union[float, str] = ""
 
-    def __init__(self, name: str, listen_to: str, val: Union[float, str] = ""):
+    def __init__(self, name: str, listen_to: str, triggered: bool = False, val: Union[float, str] = ""):
         val = val or ""
 
         self.val = val
         self.listen_to = listen_to
+        self.triggered = triggered
 
-        value = f"{listen_to}@{val}"
+        value = f"{listen_to}@{int(triggered)}@{val}"
         super().__init__(name, value)
 
     @classmethod
@@ -36,7 +38,7 @@ class AlertMessage(BaseMessage):
         name = match.group(2)
         value = match.group(3)
 
-        listen_to, val_str = value.split("@")
+        listen_to, triggered, val_str = value.split("@")
 
         # Try to convert to float, or keep as error string
         try:
@@ -45,7 +47,7 @@ class AlertMessage(BaseMessage):
             # If conversion fails, keep the original string
             val = val_str
 
-        return cls(name, listen_to, val)
+        return cls(name, listen_to, bool(triggered), val)
 
 
 class AlertConfigMessage(BaseMessage):
@@ -92,3 +94,7 @@ class AlertConfigMessage(BaseMessage):
 
         except (ValueError, KeyError) as e:
             raise TypeError(f"Invalid format for AlertConfigMessage: {value}") from e
+
+
+class AlertConditionSet(BaseMessage):
+    leader = "ACS"
