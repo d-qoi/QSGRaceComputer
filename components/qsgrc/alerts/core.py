@@ -8,7 +8,7 @@ from qsgrc.messages import AlertMessage, AlertConditions
 logger = get_logger("alerts")
 
 
-MonitorConditions = Tuple[AlertConditions, bool, Any, str]
+MonitorConditions = Tuple[AlertConditions, bool, Any]
 
 
 class MonitorAlerts:
@@ -24,12 +24,9 @@ class MonitorAlerts:
         listen_to: str,
         condition: AlertConditions,
         threshold: Any,
-        msg: str = "",
         hold: bool = True,
     ) -> None:
-        if msg == "":
-            msg = f"Alert! {listen_to}"
-        self.rules[listen_to] = (condition, hold, threshold, msg)
+        self.rules[listen_to] = (condition, hold, threshold)
 
     def remove_rule(self, listen_to: str) -> None:
         self.rules.pop(listen_to)
@@ -37,14 +34,14 @@ class MonitorAlerts:
     def reset_alert_conditions(self) -> None:
         self.alert_conditions.clear()
 
-    async def __send_alert_update(self, listen_to: str, msg: str, value: Any) -> None:
+    async def __send_alert_update(self, listen_to: str, value: Any) -> None:
         await self.out_stream.put(AlertMessage(self.name, listen_to, str(value)))
 
     async def check(self, listen_to: str, value: Any) -> None:
         if listen_to not in self.rules:
             return
 
-        condition, hold, threshold, msg = self.rules[listen_to]
+        condition, hold, threshold = self.rules[listen_to]
         alert = False
         if condition is AlertConditions.GT:
             alert = value > threshold
@@ -64,7 +61,7 @@ class MonitorAlerts:
                 return
             else:
                 self.alert_conditions[listen_to] = False
-                await self.__send_alert_update(listen_to, msg, value)
+                await self.__send_alert_update(listen_to, value)
         elif alert:
             self.alert_conditions[listen_to] = True
-            await self.__send_alert_update(listen_to, msg, value)
+            await self.__send_alert_update(listen_to, value)

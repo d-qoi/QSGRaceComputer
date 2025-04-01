@@ -1,4 +1,4 @@
-from qsgrc.monitor/obd2 import core
+from qsgrc.monitor.obd2 import core
 
 
 def test_sample():

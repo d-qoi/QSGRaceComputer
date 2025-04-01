@@ -1,3 +1,3 @@
-from qsgrc.Alerts import core
+from qsgrc.alerts.core import MonitorAlerts
 
-__all__ = ["core"]
+__all__ = ["MonitorAlerts"]

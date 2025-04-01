@@ -9,6 +9,14 @@ packages = [
     {include = "qsgrc/config",from = "components"},
     {include = "qsgrc/mock_obd2",from = "components"},
     {include = "qsgrc/log",from = "components"},
+    {include = "qsgrc/mono",from = "bases"},
+    {include = "qsgrc/monitor",from = "components"},
+    {include = "qsgrc/pit_router",from = "components"},
+    {include = "qsgrc/RYLR896",from = "components"},
+    {include = "qsgrc/car_router",from = "components"},
+    {include = "qsgrc/messages",from = "components"},
+    {include = "qsgrc/alerts",from = "components"},
+    {include = "qsgrc/event_server",from = "components"},
 ]
 
 [tool.poetry.dependencies]

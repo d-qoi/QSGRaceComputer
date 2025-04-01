@@ -1,8 +1,5 @@
-from enum import Enum
 from re import compile
 from typing import Any
-
-from pydantic import BaseModel
 
 
 class BaseMessage:
@@ -35,5 +32,5 @@ class BaseMessage:
 class OBD2Datapoint(BaseMessage):
     leader = "OBD"
 
-class SSEMessage(BaseModel):
+class SSEMessage(BaseMessage):
     leader = "SSE"

@@ -1,4 +1,4 @@
-from qsgrc.mono/pit import core
+from qsgrc.mono.pit import core
 
 
 def test_sample():

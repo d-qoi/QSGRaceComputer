@@ -1,4 +1,4 @@
-from qsgrc.mono/car import core
+from qsgrc.mono.car import core
 
 
 def test_sample():
