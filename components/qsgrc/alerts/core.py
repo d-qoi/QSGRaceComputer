@@ -2,16 +2,18 @@ from asyncio import Queue
 from typing import Any, Dict, Optional, Tuple
 
 from qsgrc.log import get_logger
+from qsgrc.messages import AlertMessage, AlertConditions
 
 
 logger = get_logger("alerts")
 
 
-MonitorConditions = Tuple[MonitorAlertConditions, bool, Any, str]
+MonitorConditions = Tuple[AlertConditions, bool, Any, str]
 
 
 class MonitorAlerts:
-    def __init__(self, out_stream: Queue, in_stream: Optional[Queue] = None) -> None:
+    def __init__(self, name: str, out_stream: Queue, in_stream: Optional[Queue] = None) -> None:
+        self.name = name
         self.out_stream = out_stream
         self.in_stream = in_stream
         self.rules: Dict[str, MonitorConditions] = {}
@@ -20,7 +22,7 @@ class MonitorAlerts:
     def add_rule(
         self,
         listen_to: str,
-        condition: MonitorAlertConditions,
+        condition: AlertConditions,
         threshold: Any,
         msg: str = "",
         hold: bool = True,
@@ -36,7 +38,7 @@ class MonitorAlerts:
         self.alert_conditions.clear()
 
     async def __send_alert_update(self, listen_to: str, msg: str, value: Any) -> None:
-        pass
+        await self.out_stream.put(AlertMessage(self.name, listen_to, str(value)))
 
     async def check(self, listen_to: str, value: Any) -> None:
         if listen_to not in self.rules:
@@ -44,15 +46,15 @@ class MonitorAlerts:
 
         condition, hold, threshold, msg = self.rules[listen_to]
         alert = False
-        if condition is MonitorAlertConditions.GT:
+        if condition is AlertConditions.GT:
             alert = value > threshold
-        if condition is MonitorAlertConditions.GTE:
+        if condition is AlertConditions.GTE:
             alert = value >= threshold
-        if condition is MonitorAlertConditions.LT:
+        if condition is AlertConditions.LT:
             alert = value < threshold
-        if condition is MonitorAlertConditions.LTE:
+        if condition is AlertConditions.LTE:
             alert = value <= threshold
-        if condition is MonitorAlertConditions.EQ:
+        if condition is AlertConditions.EQ:
             alert = value == threshold
         # Alert condition is already set
         if self.alert_conditions[listen_to]:
