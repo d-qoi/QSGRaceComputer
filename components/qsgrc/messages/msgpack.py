@@ -64,6 +64,7 @@ class MsgPack:
     # Tag: received, total, data
     buffers: Dict[int, Optional[Tuple[int, int, List[str]]]]
     in_stream: Queue[str]
+    processed_data: Queue[str]
     ack_stream: Queue[int]
     ack_callback: AckCallbackType
 
@@ -81,7 +82,7 @@ class MsgPack:
         logger.info("Initializing MsgPack message handler")
         self.buffers = {}
         self.in_stream = in_stream
-        self.out_stream = processed_data
+        self.processed_data = processed_data
         self.ack_stream = ack_stream
         self.ack_callback = ack_callback
         self.running = False
@@ -120,7 +121,7 @@ class MsgPack:
                     self.buffers.pop(data.tag)
 
                 logger.debug(f"Forwarding single packet data, length={len(data.data)}")
-                await self.out_stream.put(data.data)
+                await self.processed_data.put(data.data)
 
                 if data.tag >= self.ack_threshold:
                     logger.debug(f"Sending ACK for single packet with tag {data.tag}")
@@ -159,7 +160,7 @@ class MsgPack:
                     logger.info(
                         f"Message with tag {data.tag} complete ({len(complete_message)} bytes), forwarding"
                     )
-                    await self.out_stream.put(complete_message)
+                    await self.processed_data.put(complete_message)
                     self.buffers.pop(data.tag)
                 else:
                     logger.debug(
