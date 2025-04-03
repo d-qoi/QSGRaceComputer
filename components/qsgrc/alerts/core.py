@@ -12,7 +12,9 @@ MonitorConditions = Tuple[AlertConditions, bool, Any]
 
 
 class MonitorAlerts:
-    def __init__(self, name: str, out_stream: Queue, in_stream: Optional[Queue] = None) -> None:
+    def __init__(
+        self, name: str, out_stream: Queue, in_stream: Optional[Queue] = None
+    ) -> None:
         self.name = name
         self.out_stream = out_stream
         self.in_stream = in_stream
@@ -35,7 +37,14 @@ class MonitorAlerts:
         self.alert_conditions.clear()
 
     async def __send_alert_update(self, listen_to: str, value: Any) -> None:
-        await self.out_stream.put(AlertMessage(self.name, listen_to, str(value)))
+        await self.out_stream.put(
+            AlertMessage(
+                self.name,
+                listen_to,
+                self.alert_conditions.get(listen_to, False),
+                str(value),
+            )
+        )
 
     async def check(self, listen_to: str, value: Any) -> None:
         if listen_to not in self.rules:

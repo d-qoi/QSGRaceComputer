@@ -47,7 +47,7 @@ class AlertMessage(BaseMessage):
             # If conversion fails, keep the original string
             val = val_str
 
-        return cls(name, listen_to, bool(triggered), val)
+        return cls(name, listen_to, bool(int(triggered)), val)
 
 
 class AlertConfigMessage(BaseMessage):
@@ -64,7 +64,7 @@ class AlertConfigMessage(BaseMessage):
         self.listen_to = listen_to
         self.condition = condition
         self.threshold = threshold
-        self.msg = ""
+        self.msg = msg
 
         value = f"{listen_to}@{condition.name}@{threshold}@{msg}"
         super().__init__(name, value)
@@ -98,3 +98,4 @@ class AlertConfigMessage(BaseMessage):
 
 class AlertConditionSet(BaseMessage):
     leader = "ACS"
+

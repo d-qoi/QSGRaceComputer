@@ -43,6 +43,7 @@ Rec codes:
 from asyncio import Queue, Lock, StreamReader, StreamWriter, Event, Task, create_task, timeout
 from enum import Enum
 import re
+from typing import Optional
 
 import serial_asyncio
 
@@ -73,15 +74,15 @@ class RLYR896(object):
     ):
         self.url = url
         self.baudrate = baudrate
-        self.rec_task: Task = None
+        self.rec_task: Optional[Task] = None
         self.rec_event = Event()
         self.message_queue = Queue()
         self.command_response = Queue()
         self.send_lock = Lock()
         self.ready = False
 
-        self.reader: StreamReader = None
-        self.writer: StreamWriter = None
+        self.reader: Optional[StreamReader] = None
+        self.writer: Optional[StreamWriter] = None
 
         self.baudrate = baudrate
         self.address = address
@@ -98,6 +99,7 @@ class RLYR896(object):
         log.info("Stopping Rec Loop")
         if self.rec_task is None or self.rec_task.done():
             log.info("Task is already done")
+            return
         try:
             async with timeout(5.0):
                 self.rec_event.clear()
