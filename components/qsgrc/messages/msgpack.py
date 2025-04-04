@@ -199,7 +199,12 @@ class MsgPack:
         try:
             while self.running:
                 logger.debug("Waiting for incoming message")
-                packet = await self.in_stream.get()
+
+                try:
+                    packet = await wait_for(self.in_stream.get(), 0.5)
+                except TimeoutError:
+                    continue
+
                 logger.debug(f"Received message from queue, length={len(packet)}")
 
                 try:

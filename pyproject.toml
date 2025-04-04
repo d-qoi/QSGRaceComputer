@@ -6,17 +6,15 @@ authors = ["Alex Hirschfeld <alex@d-qoi.com>"]
 license = "GNU GPLv3"
 readme = "README.md"
 packages = [
-    {include = "qsgrc/config",from = "components"},
-    {include = "qsgrc/mock_obd2",from = "components"},
-    {include = "qsgrc/log",from = "components"},
-    {include = "qsgrc/mono",from = "bases"},
-    {include = "qsgrc/monitor",from = "components"},
-    {include = "qsgrc/pit_router",from = "components"},
+    {include = "qsgrc/mono_car",from = "bases"},
+    {include = "qsgrc/mono_pit",from = "bases"},
     {include = "qsgrc/RYLR896",from = "components"},
-    {include = "qsgrc/car_router",from = "components"},
-    {include = "qsgrc/messages",from = "components"},
     {include = "qsgrc/alerts",from = "components"},
     {include = "qsgrc/event_server",from = "components"},
+    {include = "qsgrc/log",from = "components"},
+    {include = "qsgrc/messages",from = "components"},
+    {include = "qsgrc/monitor",from = "components"},
+    {include = "qsgrc/config",from = "components"},
 ]
 
 [tool.poetry.dependencies]
@@ -41,6 +39,7 @@ black-macchiato = "^1.3.0"
 pytest = "^8.3.4"
 pytest-asyncio = "^0.25.3"
 anyio = "^4.8.0"
+pytest-timeout = "^2.3.1"
 
 [build-system]
 requires = ["poetry-core"]
