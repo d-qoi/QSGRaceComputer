@@ -514,6 +514,22 @@ files = [
 ]
 
 [[package]]
+name = "nats-py"
+version = "2.10.0"
+description = "NATS client for Python"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "nats_py-2.10.0.tar.gz", hash = "sha256:9d44265a097edb30d40e214c1dd1a7405c1451d33480ce714c041fb73bb66a10"},
+]
+
+[package.extras]
+aiohttp = ["aiohttp"]
+fast-parse = ["fast-mail-parser"]
+nkeys = ["nkeys"]
+
+[[package]]
 name = "obd"
 version = "0.7.2"
 description = "Serial module for handling live sensor data from a vehicle's OBD-II port"
@@ -1186,22 +1202,6 @@ docs = ["Sphinx (>=4.1.2,<4.2.0)", "sphinx-rtd-theme (>=0.5.2,<0.6.0)", "sphinxc
 test = ["aiohttp (>=3.10.5)", "flake8 (>=5.0,<6.0)", "mypy (>=0.800)", "psutil", "pyOpenSSL (>=23.0.0,<23.1.0)", "pycodestyle (>=2.9.0,<2.10.0)"]
 
 [[package]]
-name = "valkey"
-version = "6.1.0"
-description = "Python client for Valkey forked from redis-py"
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "valkey-6.1.0-py3-none-any.whl", hash = "sha256:cfe769edae894f74ac946eff1e93f7d7f466032c3030ba7e9d089a742459ac9c"},
-    {file = "valkey-6.1.0.tar.gz", hash = "sha256:a652df15ed89c41935ffae6dfd09c56f4a9ab80b592e5ed9204d538e2ddad6d3"},
-]
-
-[package.extras]
-libvalkey = ["libvalkey (>=4.0.1)"]
-ocsp = ["cryptography (>=36.0.1)", "pyopenssl (==23.2.1)", "requests (>=2.31.0)"]
-
-[[package]]
 name = "watchfiles"
 version = "1.0.4"
 description = "Simple, modern and high performance file watching and code reload in python."
@@ -1367,4 +1367,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "9eaa6d45c23b89c4daa40ce780e045fef76dd2ed56e453f5277619db9d352e3d"
+content-hash = "80d27fc5f0a97b8efca4c1f1798041dc064179df2f396c2997a7b1980e5bfd7b"

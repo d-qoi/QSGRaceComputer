@@ -24,10 +24,10 @@ fastapi = {extras = ["standard"], version = "^0.115.8"}
 pydantic-settings = "^2.7.1"
 obd = "^0.7.2"
 pyserial = "^3.5"
-valkey = "^6.0.2"
 psutil = "^6.1.1"
 pyserial-asyncio = "^0.6"
 fastapi-sse = "^1.1.1"
+nats-py = "^2.10.0"
 
 [tool.poetry.requires-plugins]
 poetry-multiproject-plugin = "^1.8.3"
