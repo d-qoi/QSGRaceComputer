@@ -265,14 +265,14 @@ class MsgPack:
             self.__tasks = []
 
     async def split_messages_to_queue(
-        self, data: str, stream: Queue[str], ack_needed: bool
+            self, data: str, stream: Queue[str], ack_needed: bool, tag: Optional[int] = None
     ) -> int:
         message_type = type(data).__name__
         logger.info(
             f"Sending {message_type} message, ACK {'required' if ack_needed else 'not required'}"
         )
-
-        tag = self.__get_tag(ack_needed)
+        if tag is None:
+            tag = self.__get_tag(ack_needed)
         data_string = data
         data_length = len(data_string)
 

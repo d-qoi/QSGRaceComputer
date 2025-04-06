@@ -2,19 +2,20 @@ from typing import Dict, Type
 from re import compile
 from qsgrc.messages.alerts import AlertConditions, AlertMessage, AlertConfigMessage, AlertConditionSet
 from qsgrc.messages.rlyr896 import LoRaConfigParams, LoRaConfigPassword
-from qsgrc.messages.core import BaseMessage, OBD2Datapoint
+from qsgrc.messages.core import BaseMessage, OBD2Datapoint, RequestConfig
 from qsgrc.messages.core import SSEMessage
 
 LEADER_REGEX = compile(r"^([A-Z0-9]+):")
 
 MESSAGE_REGISTERY: Dict[str, Type[BaseMessage]] = {
-    AlertMessage.leader: AlertMessage,
-    AlertConfigMessage.leader: AlertConfigMessage,
     AlertConditionSet.leader: AlertConditionSet,
-    OBD2Datapoint.leader: OBD2Datapoint,
-    SSEMessage.leader: SSEMessage,
+    AlertConfigMessage.leader: AlertConfigMessage,
+    AlertMessage.leader: AlertMessage,
     LoRaConfigParams.leader: LoRaConfigParams,
-    LoRaConfigPassword.leader: LoRaConfigPassword
+    LoRaConfigPassword.leader: LoRaConfigPassword,
+    OBD2Datapoint.leader: OBD2Datapoint,
+    RequestConfig.leader: RequestConfig,
+    SSEMessage.leader: SSEMessage,
 }
 
 def unpack(message: str) -> BaseMessage:
@@ -28,14 +29,15 @@ def unpack(message: str) -> BaseMessage:
     return MESSAGE_REGISTERY[leader].unpack(message)
 
 __all__ = [
-    "BaseMessage",
-    "unpack",
-    "AlertMessage",
+    "AlertConditionSet",
     "AlertConditions",
     "AlertConfigMessage",
-    "AlertConditionSet",
-    "OBD2Datapoint",
-    "SSEMessage",
+    "AlertMessage",
+    "BaseMessage",
     "LoRaConfigParams",
     "LoRaConfigPassword",
+    "OBD2Datapoint",
+    "RequestConfig",
+    "SSEMessage",
+    "unpack",
 ]

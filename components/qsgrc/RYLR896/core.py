@@ -174,8 +174,8 @@ class RLYR896(object):
         return False
 
     async def soft_reset(self) -> None:
-        await self.__send("AT+RESET")
         self.ready = False
+        await self.__send("AT+RESET", ignore_ready=True)
 
     async def send(self, address: int, data: str) -> None:
         if not (0 <= address <= 65535):

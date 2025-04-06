@@ -14,7 +14,7 @@ class BaseMessage:
         self.value = value
 
     @classmethod
-    def unpack(cls, data: str):
+    def unpack(cls, data: str) -> "BaseMessage":
         match = cls.match_re.fullmatch(data)
         if not match:
             raise TypeError
@@ -34,3 +34,6 @@ class OBD2Datapoint(BaseMessage):
 
 class SSEMessage(BaseMessage):
     leader = "SSE"
+
+class RequestConfig(BaseMessage):
+    leader = "REQ"
