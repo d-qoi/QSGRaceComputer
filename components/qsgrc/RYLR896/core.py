@@ -40,19 +40,32 @@ Rec codes:
    15 = unknown error
 """
 
-from asyncio import Queue, Lock, StreamReader, StreamWriter, Event, Task, create_task, timeout
+from asyncio import (
+    Queue,
+    Lock,
+    StreamReader,
+    StreamWriter,
+    Event,
+    Task,
+    create_task,
+    timeout,
+    sleep,
+)
 from enum import Enum
 import re
 from typing import Optional
+from hashlib import sha256
 
 import serial_asyncio
 
 from qsgrc.RYLR896 import errors
 from qsgrc.log import get_logger
+from qsgrc.messages.rlyr896 import LoRaConfigParams
 
 CPIN_REGEX = re.compile(r"([0-9a-f]){32}", re.IGNORECASE)
 
-log = get_logger(__name__)
+log = get_logger("RLYR896")
+
 
 class RLYR896_MODE(Enum):
     SLEEP = 1
@@ -68,15 +81,19 @@ class RLYR896(object):
     def __init__(
         self,
         url: str,
+        params: LoRaConfigParams,
+        message_steam: Queue[str],
         baudrate: int = 115200,
         address: int = 10,
         network_id: int = 3,
+        freq: RLYR896_FREQ = RLYR896_FREQ.HIGH,
+        password: str = "QSGRC",
     ):
         self.url = url
         self.baudrate = baudrate
         self.rec_task: Optional[Task] = None
         self.rec_event = Event()
-        self.message_queue = Queue()
+        self.message_queue = message_steam
         self.command_response = Queue()
         self.send_lock = Lock()
         self.ready = False
@@ -87,6 +104,12 @@ class RLYR896(object):
         self.baudrate = baudrate
         self.address = address
         self.network_id = network_id
+        self.freq = freq
+        self.spreading_factor = params.spreading_factor
+        self.bandwidth = params.bandwidth
+        self.coding_rate = params.coding_rate
+        self.preamble = params.preamble
+        self.password = password
 
     async def connect(self) -> None:
         self.reader, self.writer = await serial_asyncio.open_serial_connection(
@@ -124,11 +147,20 @@ class RLYR896(object):
         self.rec_task = create_task(self.__rec_loop())
 
         log.debug("Started loop")
-        await self.ping()
+        while not self.ready:
+            await self.ping()
+            await sleep(1)
         log.debug("Ping succeeded, setting default values")
-        await self.set_ipr(self.baudrate)
-        await self.set_address(self.address)
-        await self.set_network_id(self.network_id)
+        await sleep(0.2)
+        await self.set_network_id(self.network_id, force=True)
+        await sleep(0.2)
+        await self.set_parameters(
+            self.spreading_factor, self.bandwidth, self.coding_rate, self.preamble
+        )
+        await sleep(0.2)
+        await self.set_address(self.address, force=True)
+        await sleep(0.2)
+        await self.set_pass(self.password)
         log.debug("Startup Completed")
 
     async def ping(self) -> bool:
@@ -145,8 +177,8 @@ class RLYR896(object):
         await self.__send("AT+RESET")
         self.ready = False
 
-    async def send(self, data: str, address: int=0) -> None:
-        if not (0 <= address <= 65535 ):
+    async def send(self, address: int, data: str) -> None:
+        if not (0 <= address <= 65535):
             address = 0
 
         data_length = len(data)
@@ -159,9 +191,14 @@ class RLYR896(object):
 
         await self.__send(f"AT+SEND={address},{data_length},{data}")
 
-    async def set_address(self, address: int) -> None:
+    async def set_address(self, address: int, force: bool = False) -> None:
         if not (0 <= address < 65535):
             raise errors.ATCommandError(message="Address Out of Range")
+
+        if address == self.address and not force:
+            return
+
+        self.address = address
 
         await self.__send(f"AT+ADDRESS={address}")
 
@@ -169,11 +206,17 @@ class RLYR896(object):
         response = await self.__send("AT+ADDRESS?")
         # Response format: +ADDRESS=<value>
         value = int(response.split("=")[1])
+        self.address = value
         return value
 
-    async def set_network_id(self, network_id: int) -> None:
+    async def set_network_id(self, network_id: int, force: bool = False) -> None:
         if not (0 <= network_id <= 16):
             raise errors.ATCommandError(message="Network ID must be between 0 and 16")
+
+        if self.network_id == network_id and not force:
+            return
+
+        self.network_id = network_id
 
         await self.__send(f"AT+NETWORKID={network_id}")
 
@@ -181,6 +224,7 @@ class RLYR896(object):
         response = await self.__send("AT+NETWORKID?")
         # Response format: +NETWORKID=<value>
         value = int(response.split("=")[1])
+        self.network_id = value
         return value
 
     async def set_mode(self, mode: RLYR896_MODE) -> None:
@@ -221,13 +265,13 @@ class RLYR896(object):
             "spreading_factor": int(values[0]),
             "bandwidth": int(values[1]),
             "coding_rate": int(values[2]),
-            "preamble": int(values[3])
+            "preamble": int(values[3]),
         }
 
     async def set_freq(self, freq: RLYR896_FREQ) -> None:
         await self.__send(f"AT+BAND={freq.value}")
 
-    async def get_freq(self) -> RLYR896_FREQ|int:
+    async def get_freq(self) -> RLYR896_FREQ | int:
         response = await self.__send("AT+BAND?")
         # Response format: +BAND=<value>
         value = int(response.split("=")[1])
@@ -237,10 +281,13 @@ class RLYR896(object):
             return value
 
     async def set_pass(self, password: str) -> None:
-        if not CPIN_REGEX.fullmatch(password):
-            raise errors.ATCommandError(message="Password must be 32 characters of Hex")
+        hashed = sha256(password.encode()).hexdigest()[:32]
 
-        await self.__send(f"AT+CPIN={password}")
+        await self.__send(f"AT+CPIN={hashed.upper()}")
+
+    async def get_pass(self) -> str:
+        resp = await self.__send("AT+CPIN?")
+        return resp
 
     async def set_power(self, power: int) -> None:
         if not (0 <= power < 20):
@@ -258,6 +305,8 @@ class RLYR896(object):
     # Figure out if AT will send multiple errors/
     async def __send(self, data: str, ignore_ready: bool = False) -> str:
         log.debug(f"trying to send {data}")
+        if self.writer is None:
+            raise BufferError("Writer is not initialized")
 
         if self.rec_task is None or self.rec_task.done():
             log.error("Rec loop is not running, failing send")
@@ -272,10 +321,12 @@ class RLYR896(object):
 
             # Empty command response, no clutter.
             while not self.command_response.empty():
-                await self.command_response.get()
+                resp = await self.command_response.get()
+                log.debug(f"emptying command response: {resp}")
 
-            self.writer.write(data.encode())
-            self.writer.write(b"\r\n")
+            log.debug(f"Writing: {data.encode()+b'\r\n'}")
+            self.writer.write(data.encode() + b"\r\n")
+            await self.writer.drain()
             try:
                 async with timeout(5.0):
                     data = await self.command_response.get()
@@ -290,11 +341,15 @@ class RLYR896(object):
 
     async def __rec_loop(self):
         while self.rec_event.is_set():
+            if self.reader is None:
+                await sleep(1)
+                continue
             data = ""
             try:
                 data = await self.reader.readline()
             except Exception as e:
                 log.error(f"read line error: {e}")
+                continue
             if not data:
                 continue
             data = data.decode().strip()
@@ -302,6 +357,7 @@ class RLYR896(object):
                 log.error(f"Error: {data}")
                 await self.command_response.put(data)
             elif data.startswith("+READY"):
+                log.info("Device is ready")
                 self.ready = True
             elif data.startswith("+RCV"):
                 await self.message_queue.put(data)
