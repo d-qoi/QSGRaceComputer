@@ -74,9 +74,9 @@ class MsgPack:
 
     def __init__(
         self,
-        in_stream: Queue,
-        processed_data: Queue,
-        ack_stream: Queue,
+        in_stream: Queue[str],
+        processed_data: Queue[str],
+        ack_stream: Queue[int],
         ack_callback: AckCallbackType,
     ) -> None:
         logger.info("Initializing MsgPack message handler")
@@ -265,15 +265,15 @@ class MsgPack:
             self.__tasks = []
 
     async def split_messages_to_queue(
-        self, data: BaseMessage, stream: Queue[str], ack_needed: bool = True
-    ):
+        self, data: str, stream: Queue[str], ack_needed: bool
+    ) -> int:
         message_type = type(data).__name__
         logger.info(
             f"Sending {message_type} message, ACK {'required' if ack_needed else 'not required'}"
         )
 
         tag = self.__get_tag(ack_needed)
-        data_string = str(data)
+        data_string = data
         data_length = len(data_string)
 
         logger.debug(
@@ -283,7 +283,7 @@ class MsgPack:
         if data_length <= self.split_length:
             logger.debug(f"Message fits in a single packet, sending with tag {tag}")
             await stream.put(str(Packet(0, 0, tag, data_string)))
-            return
+            return tag
 
         # Split message into multiple packets
         logger.info(f"Splitting message ({data_length} bytes) into multiple packets")
@@ -316,3 +316,4 @@ class MsgPack:
             await stream.put(str(packet_obj))
 
         logger.debug(f"All {total} fragments for {tag} queued for sending")
+        return tag

@@ -4,6 +4,8 @@ import json
 import signal
 import sys
 
+from nats.aio.msg import Msg
+
 
 async def main():
     # Connect to NATS
@@ -22,15 +24,16 @@ async def main():
         loop.add_signal_handler(sig, signal_handler)
 
     # Message handler
-    async def message_handler(msg):
+    async def message_handler(msg: Msg):
         try:
+            print(msg.subject)
             data = json.loads(msg.data.decode())
             print(f"Received: {data['formatted_time']}")
         except Exception as e:
             print(f"Error processing message: {e}")
 
     # Subscribe to time updates
-    sub = await nc.subscribe("time.updates", cb=message_handler)
+    sub = await nc.subscribe("time.*.*", cb=message_handler)
     print("Subscribed to time updates. Press Ctrl+C to exit.")
 
     try:
