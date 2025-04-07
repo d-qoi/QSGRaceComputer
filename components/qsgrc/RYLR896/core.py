@@ -93,7 +93,7 @@ class RLYR896(object):
         self.baudrate = baudrate
         self.rec_task: Optional[Task] = None
         self.rec_event = Event()
-        self.message_queue = message_steam
+        self.received_messages = message_steam
         self.command_response = Queue()
         self.send_lock = Lock()
         self.ready = False
@@ -352,7 +352,11 @@ class RLYR896(object):
                 continue
             if not data:
                 continue
-            data = data.decode().strip()
+            try:
+                data = data.decode().strip()
+            except UnicodeDecodeError as e:
+                log.error(f"Error in rec loop decode: {e}")
+                continue
             if data.startswith("+ERR"):
                 log.error(f"Error: {data}")
                 await self.command_response.put(data)
@@ -360,6 +364,7 @@ class RLYR896(object):
                 log.info("Device is ready")
                 self.ready = True
             elif data.startswith("+RCV"):
-                await self.message_queue.put(data)
+                log.debug(f"Received message: {data}")
+                await self.received_messages.put(data)
             else:
                 await self.command_response.put(data)

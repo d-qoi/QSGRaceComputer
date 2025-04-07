@@ -116,8 +116,12 @@ async def run_shell(port, params):
                     print(f"Current frequency: {freq}")
 
             elif command == "param":
-                params = await lora.get_parameters()
-                print(f"Parameters: {params}")
+                if len(parts) == 5:
+                    spreading, bandwidth, coding, preamble = parts[1:]
+                    await lora.set_parameters(int(spreading), int(bandwidth), int(coding), int(preamble))
+                else:
+                    params = await lora.get_parameters()
+                    print(f"Parameters: {params}")
 
             elif command == "power":
                 if len(parts) > 1:
@@ -148,6 +152,18 @@ async def run_shell(port, params):
                 await asyncio.sleep(2)
                 await lora.start()
                 print("Device ready!")
+
+            elif command == "send_test":
+                for i in range(int(parts[1]) if len(parts) > 1 else 50):
+                    await lora.send(0, f"{i} + This is a test command, this is a long test command, let's see what happens.")
+                    if len(parts) > 2:
+                        await asyncio.sleep(float(parts[2]))
+
+            elif command == "send_test2":
+                for i in range(int(parts[1]) if len(parts) > 1 else 50):
+                    await lora.send(0, f"{i} + padding")
+                    if len(parts) > 2:
+                        await asyncio.sleep(float(parts[2]))
 
             else:
                 print("Unknown command. Type 'help' for available commands.")

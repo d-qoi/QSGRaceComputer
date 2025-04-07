@@ -31,9 +31,9 @@ class AlertMessage(BaseMessage):
     def unpack(cls, data: str):
         match = cls.match_re.fullmatch(data)
         if not match:
-            raise TypeError(f"Data did not match regex: {data}")
+            raise ValueError(f"Data did not match regex: {data}")
         elif match.group(1) != cls.leader:
-            raise TypeError(f"leader mismatch: {cls.leader} != {match.group(1)}")
+            raise ValueError(f"leader mismatch: {cls.leader} != {match.group(1)}")
 
         name = match.group(2)
         value = match.group(3)
@@ -73,9 +73,9 @@ class AlertConfigMessage(BaseMessage):
     def unpack(cls, data: str) -> "AlertConfigMessage":
         match = cls.match_re.fullmatch(data)
         if not match:
-            raise TypeError(f"Data did not match regex: {data}")
+            raise ValueError(f"Data did not match regex: {data}")
         elif match.group(1) != cls.leader:
-            raise TypeError(f"leader mismatch: {cls.leader} != {match.group(1)}")
+            raise ValueError(f"leader mismatch: {cls.leader} != {match.group(1)}")
 
         name = match.group(2)
         value = match.group(3)
@@ -93,7 +93,7 @@ class AlertConfigMessage(BaseMessage):
             return cls(name, listen_to, condition, threshold, msg)
 
         except (ValueError, KeyError) as e:
-            raise TypeError(f"Invalid format for AlertConfigMessage: {value}") from e
+            raise ValueError(f"Invalid format for AlertConfigMessage: {value}") from e
 
 
 class AlertConditionSet(BaseMessage):

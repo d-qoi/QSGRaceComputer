@@ -20,7 +20,7 @@ class LoRaConfigParams(BaseMessage):
     def unpack(cls, data: str) -> "LoRaConfigParams":
         base = super().unpack(data)
         if base.name != cls.name:
-            raise TypeError(f"name mismatch: {cls.name} != {base.name}")
+            raise ValueError(f"name mismatch: {cls.name} != {base.name}")
 
         parts = base.value.split(".")
         if len(parts) != 4:

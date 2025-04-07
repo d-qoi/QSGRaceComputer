@@ -29,6 +29,7 @@ class Config(BaseSettings):
     lora_url: str = "/dev/ttyUSB0"
     lora_address: int = 5
     lora_network_id: int = 2
+    lora_target_address: int = 0
     obd2_url: Optional[str] = None
 
 

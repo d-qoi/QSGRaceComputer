@@ -1,6 +1,15 @@
-from asyncio import CancelledError, Queue, Task, run, wait_for, sleep
+from asyncio import (
+    CancelledError,
+    Queue,
+    Task,
+    get_running_loop,
+    run,
+    wait_for,
+    sleep,
+    create_task,
+)
+import signal
 import time
-from types import new_class
 from typing import Dict
 
 import nats
@@ -10,7 +19,7 @@ from nats.aio.client import Client as NATS
 from qsgrc.config import config
 from qsgrc.log.core import get_logger
 from qsgrc.RYLR896 import RLYR896_MODE, RLYR896_FREQ, RLYR896, errors
-from qsgrc.messages import LoRaConfigParams, LoRaConfigPassword
+from qsgrc.messages import LoRaConfigParams, LoRaConfigPassword, unpack
 from qsgrc.messages.core import RequestConfig
 from qsgrc.messages.msgpack import MsgPack, ACK
 
@@ -22,12 +31,13 @@ LORA_PASSWORD = LoRaConfigPassword("QSGRC_LORAPASS")
 
 class LoRa_Service:
     max_retries: int = 3
+    high_priority_send_limit: int = 5
     resend_interval: float = 5.0
     tasks: list[Task]
     request_config: str = "LORA"
 
     running: bool
-    immediate_stream: Queue[str]
+    immediate_queue: Queue[str]
     high_priority_queue: Queue[str]
     low_priority_queue: Queue[str]
     incomming_stream: Queue[str]
@@ -45,7 +55,7 @@ class LoRa_Service:
         self.tasks = []
 
         self.running = False
-        self.immediate_stream = Queue()
+        self.immediate_queue = Queue()
         self.high_priority_queue = Queue()
         self.low_priority_queue = Queue()
         self.incomming_stream = Queue()
@@ -71,9 +81,11 @@ class LoRa_Service:
         while self.running:
             try:
                 tag = await wait_for(self.acks_to_send.get(), 0.5)
-                await self.immediate_stream.put(str(ACK(tag)))
+                await self.immediate_queue.put(str(ACK(tag)))
             except TimeoutError:
                 continue
+            except CancelledError:
+                logger.warning("Ack Task Canceled")
             except Exception as e:
                 logger.error(f"Error while trying to send ACK: {e}")
 
@@ -81,11 +93,10 @@ class LoRa_Service:
         while self.running:
             try:
                 now = time.monotonic()
-                to_resend = []
 
                 for tag in list(self.pending_acks.keys()):
                     (expiry, attempt, queue, data) = self.pending_acks[tag]
-                    if expiry < now:
+                    if now < expiry:
                         continue
                     if attempt >= self.max_retries:
                         logger.warning(
@@ -98,7 +109,7 @@ class LoRa_Service:
                     new_expiry = now + self.resend_interval
                     if queue == "immediate":
                         tag = await self.msgpack.split_messages_to_queue(
-                            data, self.immediate_stream, True, tag=tag
+                            data, self.immediate_queue, True, tag=tag
                         )
                     else:
                         tag = await self.msgpack.split_messages_to_queue(
@@ -109,9 +120,43 @@ class LoRa_Service:
                 await sleep(0.5)
             except CancelledError:
                 logger.warning("Resend Monitor Task Canceled")
-                self.running = False
             except Exception as e:
                 logger.error(f"Exception in Resend Monitor: {e}")
+
+    async def __transmit_task(self):
+        high_priority_count = 0
+        while self.running:
+            try:
+                packet = ""
+                if self.immediate_queue.qsize() > 0:
+                    logger.debug("Sending From Immediate Queue")
+                    packet = await self.immediate_queue.get()
+                if (
+                    packet == ""
+                    and high_priority_count < self.high_priority_send_limit
+                    and self.high_priority_queue.qsize() > 0
+                ):
+                    high_priority_count += 1
+                    packet = await self.high_priority_queue.get()
+                else:
+                    high_priority_count = 0
+
+                if packet == "" and self.low_priority_queue.qsize() > 0:
+                    packet = await self.low_priority_queue.get()
+                    high_priority_count = 0
+
+                if packet == "":
+                    await sleep(0.25)
+                else:
+                    try:
+                        await self.lora_con.send(config.lora_target_address, packet)
+                    except errors.ATCommandError as e:
+                        logger.error(f"Lora Send Error: {e}")
+                    await sleep(0.1)
+            except CancelledError:
+                logger.warning("Transmit Task Canceled")
+            except Exception as e:
+                logger.error(f"Exception in Transmit Task: {e}")
 
     async def config_handler_params(self, msg: Msg):
         params = LoRaConfigParams.unpack(msg.data.decode())
@@ -126,11 +171,15 @@ class LoRa_Service:
         params = LoRaConfigPassword.unpack(msg.data.decode())
         await self.lora_con.set_pass(params.value)
 
-
     async def config_handler_get_config(self, msg: Msg):
-        params = await self.lora_con.get_parameters()
-        data = LoRaConfigParams(**params)
-        await self.nc.publish("lora.ack.high", str(data).encode())
+        try:
+            packet = RequestConfig.unpack(msg.data.decode())
+            if packet.name == "LORA":
+                params = await self.lora_con.get_parameters()
+                data = LoRaConfigParams(**params)
+                await self.nc.publish("lora.ack.high", str(data).encode())
+        except ValueError as e:
+            logger.error(f"Unpack error in get config: {e}")
 
     async def transmit_handler(self, msg: Msg):
         _, ack, priority = msg.subject.split(".")
@@ -138,7 +187,7 @@ class LoRa_Service:
         tag = 0
         if priority == "immediate":
             tag = await self.msgpack.split_messages_to_queue(
-                msg.data.decode(), self.immediate_stream, ack_needed
+                msg.data.decode(), self.immediate_queue, ack_needed
             )
         elif priority == "high":
             tag = await self.msgpack.split_messages_to_queue(
@@ -153,10 +202,28 @@ class LoRa_Service:
             self.pending_acks[tag] = (expiry_time, 0, priority, msg.data.decode())
             logger.info(f"Tracking message ({tag}) for ack")
 
-    async def receive_handler(self):
+    async def __receive_handler_task(self):
+        while self.running:
+            try:
+                data = await wait_for(self.incomming_stream.get(), 0.5)
+                message = unpack(data)
+                await self.nc.publish(message.leader, str(message).encode())
+            except TimeoutError:
+                continue
+            except CancelledError:
+                logger.warning("Receive Handler Canceled")
+            except Exception as e:
+                logger.error(f"Error in Receive Task: {e}")
+
+    async def stop(self):
         pass
 
     async def run(self):
+        loop = get_running_loop()
+        signals = (signal.SIGTERM, signal.SIGINT)
+        for sig in signals:
+            loop.add_signal_handler(sig, lambda: create_task(self.stop()))
+
         self.nc = await nats.connect(str(config.nats_url))
 
         self.lora_con = RLYR896(
@@ -167,6 +234,11 @@ class LoRa_Service:
             network_id=config.lora_network_id,
             password=LORA_PASSWORD.value,
         )
+
+        await self.lora_con.connect()
+        await self.lora_con.start()
+
+        self.running = True
 
         self.sub_transmit = await self.nc.subscribe(
             "lora.*.*", cb=self.transmit_handler
@@ -180,6 +252,11 @@ class LoRa_Service:
         self.sub_request_config = await self.nc.subscribe(
             RequestConfig.leader, cb=self.config_handler_get_config
         )
+
+        self.tasks.append(create_task(self.__resend_monitor_task()))
+        self.tasks.append(create_task(self.__send_ack_task()))
+        self.tasks.append(create_task(self.__transmit_task()))
+        self.tasks.append(create_task(self.__receive_handler_task()))
 
 
 def main():

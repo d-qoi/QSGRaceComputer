@@ -17,9 +17,9 @@ class BaseMessage:
     def unpack(cls, data: str) -> "BaseMessage":
         match = cls.match_re.fullmatch(data)
         if not match:
-            raise TypeError
+            raise ValueError
         elif match.group(1) != cls.leader:
-            raise TypeError(f"leader mismatch: {cls.leader} != {match.group(1)}")
+            raise ValueError(f"leader mismatch: {cls.leader} != {match.group(1)}")
         return cls(match.group(2), match.group(3))
 
     def __str__(self) -> str:
