@@ -14,6 +14,7 @@ from pathlib import Path
 import signal
 import json
 import time
+from typing import final
 
 import nats
 from nats.aio.msg import Msg
@@ -33,7 +34,7 @@ logger = get_logger("service.lora")
 LORA_PARAMS = LoRaConfigParams(10, 9, 1, 4)
 LORA_PASSWORD = LoRaConfigPassword("QSGRC_LORAPASS")
 
-
+@final
 class LoRa_Service:
     max_retries: int = 3
     high_priority_send_limit: int = 5
@@ -82,6 +83,7 @@ class LoRa_Service:
 
     async def __load_saved_config(self) -> None:
         """Load saved configuration from persistent storage"""
+        logger.debug("Loading saved configuration.")
         try:
             if config.config_file.exists():
                 with open(config.config_file, "r") as f:
@@ -89,13 +91,16 @@ class LoRa_Service:
 
                     # Apply saved configuration if available
                     if "address" in saved_config:
+                        logger.debug(f"Setting address: {saved_config['address']}")
                         await self.lora_con.set_address(saved_config["address"])
 
                     if "network_id" in saved_config:
+                        logger.debug(f"Setting network ID: {saved_config['network_id']}")
                         await self.lora_con.set_network_id(saved_config["network_id"])
 
                     # Apply other parameters...
                     if "params" in saved_config:
+                        logger.debug(f"Setting parameters: {saved_config['params']}")
                         await self.lora_con.set_parameters(
                             saved_config["params"]["spreading_factor"],
                             saved_config["params"]["bandwidth"],
@@ -104,6 +109,7 @@ class LoRa_Service:
                         )
 
                     if "password" in saved_config:
+                        logger.debug(f"Setting password: {saved_config['password']}")
                         await self.lora_con.set_pass(saved_config["password"])
 
                     logger.info(f"Loaded saved configuration: {saved_config}")
@@ -112,6 +118,7 @@ class LoRa_Service:
 
     def __save_config(self) -> None:
         """Save current configuration to persistent storage"""
+        logger.debug("Saving current configuration.")
         try:
             config_to_save = {
                 "address": self.lora_con.address,
@@ -137,9 +144,11 @@ class LoRa_Service:
             del self.pending_acks[tag]
 
     async def __send_ack_task(self):
+        logger.debug("Starting send ACK task.")
         while self.running:
             try:
                 tag = await wait_for(self.acks_to_send.get(), 0.5)
+                logger.debug(f"Sending ACK for tag: {tag}")
                 await self.immediate_queue.put(str(ACK(tag)))
             except TimeoutError:
                 continue
@@ -149,6 +158,7 @@ class LoRa_Service:
                 logger.error(f"Error while trying to send ACK: {e}")
 
     async def __resend_monitor_task(self):
+        logger.debug("Starting resend monitor task.")
         while self.running:
             try:
                 now = time.monotonic()
@@ -183,6 +193,7 @@ class LoRa_Service:
                 logger.error(f"Exception in Resend Monitor: {e}")
 
     async def __transmit_task(self):
+        logger.debug("Starting transmit task.")
         high_priority_count = 0
         while self.running:
             try:
@@ -208,6 +219,7 @@ class LoRa_Service:
                     await sleep(0.25)
                 else:
                     try:
+                        logger.debug(f"Transmitting packet: {packet}")
                         await self.lora_con.send(config.lora_target_address, packet)
                     except errors.ATCommandError as e:
                         logger.error(f"Lora Send Error: {e}")
@@ -219,6 +231,7 @@ class LoRa_Service:
 
     async def config_handler(self, msg: Msg):
         params = unpack(msg.data.decode())
+        logger.debug(f"Handling config for: {params.leader}")
         if params.leader == LoRaConfigParams.leader:
             create_task(self.config_handler_params(params))
         elif params.leader == LoRaConfigNetwork.leader:
@@ -229,6 +242,7 @@ class LoRa_Service:
             logger.warning(f"Unknown config sent to LoRa: {params}")
 
     async def config_handler_params(self, params: LoRaConfigParams):
+        logger.info(f"Setting LoRa parameters: {params}")
         await self.lora_con.set_parameters(
             params.spreading_factor,
             params.bandwidth,
@@ -238,17 +252,20 @@ class LoRa_Service:
         self.__save_config()
 
     async def config_handler_network(self, params: LoRaConfigNetwork):
+        logger.info(f"Setting LoRa network ID: {params.network_id}, address: {params.address}")
         await self.lora_con.set_network_id(params.network_id)
         await self.lora_con.set_address(params.address)
         self.__save_config()
 
     async def config_handler_password(self, params: LoRaConfigPassword):
+        logger.info(f"Setting LoRa password")
         await self.lora_con.set_pass(params.value)
         self.__save_config()
 
     async def config_handler_get_config(self, msg: Msg):
         try:
             packet = RequestConfig.unpack(msg.data.decode())
+            logger.debug(f"Handling get config for: {packet.name}")
             if packet.name == "LORA":
                 params = await self.lora_con.get_parameters()
                 data = LoRaConfigParams(**params)
@@ -258,6 +275,7 @@ class LoRa_Service:
 
     async def transmit_handler(self, msg: Msg):
         _, ack, priority = msg.subject.split(".")
+        logger.debug(f"Handling transmit for subject: {msg.subject}")
         ack_needed = ack == "ack"
         tag = 0
         if priority == "immediate":
@@ -278,11 +296,13 @@ class LoRa_Service:
             logger.info(f"Tracking message ({tag}) for ack")
 
     async def __receive_handler_task(self):
+        logger.debug("Starting receive handler task.")
         while self.running:
             try:
                 data = await wait_for(self.incomming_stream.get(), 0.5)
                 self.incomming_stream.task_done()
                 message = unpack(data)
+                logger.debug(f"Received message, publishing: {message.subject}")
                 await self.nc.publish(message.subject, str(message).encode())
             except TimeoutError:
                 continue
@@ -294,10 +314,12 @@ class LoRa_Service:
     async def stop(self, *args, **kwargs):
         if not self.running:
             return
+        logger.info("Stopping LoRa Service.")
         self.running = False
         try:
             await wait_for(gather(*self.tasks), 5)
         except TimeoutError:
+            logger.warning("Timeout waiting for tasks to finish, forcefully cancelling.")
             for task in self.tasks:
                 task.cancel()
         self.tasks = []
@@ -308,12 +330,14 @@ class LoRa_Service:
         await self.nc.close()
 
     async def run(self):
+        logger.info("Starting LoRa Service.")
         loop = get_running_loop()
         signals = (signal.SIGTERM, signal.SIGINT)
         for sig in signals:
             loop.add_signal_handler(sig, lambda: loop.create_task(self.stop()))
 
         self.nc = await nats.connect(str(config.nats_url))
+        logger.debug("Connected to NATS.")
 
         self.lora_con = RLYR896(
             str(config.lora_url),
@@ -343,6 +367,7 @@ class LoRa_Service:
         self.tasks.append(create_task(self.__receive_handler_task()))
 
         _ = await wait([*self.tasks])
+        logger.info("LoRa Service tasks started.")
 
 
 def main():
