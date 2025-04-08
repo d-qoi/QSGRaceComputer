@@ -2,6 +2,7 @@ from asyncio import (
     CancelledError,
     Queue,
     Task,
+    gather,
     get_running_loop,
     run,
     wait_for,
@@ -220,14 +221,29 @@ class LoRa_Service:
             except Exception as e:
                 logger.error(f"Error in Receive Task: {e}")
 
-    async def stop(self):
-        pass
+    async def stop(self, *args, **kwargs):
+        if not self.running:
+            return
+        self.running = False
+        try:
+            await wait_for(gather(*self.tasks), 5)
+        except TimeoutError:
+            for task in self.tasks:
+                task.cancel()
+        self.tasks = []
+        self.sub_transmit.unsubscribe()
+        self.sub_config_params.unsubscribe()
+        self.sub_config_pass.unsubscribe()
+        self.sub_request_config.unsubscribe()
+
+        await self.lora_con.stop()
+        await self.nc.close()
 
     async def run(self):
         loop = get_running_loop()
         signals = (signal.SIGTERM, signal.SIGINT)
         for sig in signals:
-            loop.add_signal_handler(sig, lambda: create_task(self.stop()))
+            loop.add_signal_handler(sig, self.stop)
 
         self.nc = await nats.connect(str(config.nats_url))
 
