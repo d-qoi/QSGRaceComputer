@@ -77,11 +77,8 @@ class LoRa_Service:
 
         self.nc: NATS
         self.lora_con: RLYR896
-        self.sub_config_params: Subscription
-        self.sub_config_pass: Subscription
-        self.sub_request_config: Subscription
+        self.sub_config: Subscription
         self.sub_transmit: Subscription
-        self.sub_config_network: Subscription
 
     async def __load_saved_config(self) -> None:
         """Load saved configuration from persistent storage"""
@@ -220,8 +217,18 @@ class LoRa_Service:
             except Exception as e:
                 logger.error(f"Exception in Transmit Task: {e}")
 
-    async def config_handler_params(self, msg: Msg):
-        params = LoRaConfigParams.unpack(msg.data.decode())
+    async def config_handler(self, msg: Msg):
+        params = unpack(msg.data.decode())
+        if params.leader == LoRaConfigParams.leader:
+            create_task(self.config_handler_params(params))
+        elif params.leader == LoRaConfigNetwork.leader:
+            create_task(self.config_handler_network(params))
+        elif params.leader == LoRaConfigPassword.leader:
+            create_task(self.config_handler_password(params))
+        else:
+            logger.warning(f"Unknown config sent to LoRa: {params}")
+
+    async def config_handler_params(self, params: LoRaConfigParams):
         await self.lora_con.set_parameters(
             params.spreading_factor,
             params.bandwidth,
@@ -230,14 +237,12 @@ class LoRa_Service:
         )
         self.__save_config()
 
-    async def config_handler_network(self, msg: Msg):
-        params = LoRaConfigNetwork.unpack(msg.data.decode())
+    async def config_handler_network(self, params: LoRaConfigNetwork):
         await self.lora_con.set_network_id(params.network_id)
         await self.lora_con.set_address(params.address)
         self.__save_config()
 
-    async def config_handler_password(self, msg: Msg):
-        params = LoRaConfigPassword.unpack(msg.data.decode())
+    async def config_handler_password(self, params: LoRaConfigPassword):
         await self.lora_con.set_pass(params.value)
         self.__save_config()
 
@@ -278,7 +283,7 @@ class LoRa_Service:
                 data = await wait_for(self.incomming_stream.get(), 0.5)
                 self.incomming_stream.task_done()
                 message = unpack(data)
-                await self.nc.publish(message.leader, str(message).encode())
+                await self.nc.publish(message.subject, str(message).encode())
             except TimeoutError:
                 continue
             except CancelledError:
@@ -296,11 +301,8 @@ class LoRa_Service:
             for task in self.tasks:
                 task.cancel()
         self.tasks = []
-        self.sub_transmit.unsubscribe()
-        self.sub_config_params.unsubscribe()
-        self.sub_config_pass.unsubscribe()
-        self.sub_request_config.unsubscribe()
-        self.sub_config_network.unsubscribe()
+        await self.sub_transmit.unsubscribe()
+        await self.sub_config.unsubscribe()
 
         await self.lora_con.stop()
         await self.nc.close()
@@ -331,17 +333,8 @@ class LoRa_Service:
         self.sub_transmit = await self.nc.subscribe(
             "lora.*.*", cb=self.transmit_handler
         )
-        self.sub_config_params = await self.nc.subscribe(
-            LoRaConfigParams.leader, cb=self.config_handler_params
-        )
-        self.sub_config_pass = await self.nc.subscribe(
-            LoRaConfigPassword.leader, cb=self.config_handler_password
-        )
-        self.sub_request_config = await self.nc.subscribe(
-            RequestConfig.leader, cb=self.config_handler_get_config
-        )
-        self.sub_config_network = await self.nc.subscribe(
-            LoRaConfigNetwork.leader, cb=self.config_handler_network
+        self.sub_config = await self.nc.subscribe(
+            LoRaConfigParams.subject, cb=self.config_handler
         )
 
         self.tasks.append(create_task(self.__resend_monitor_task()))

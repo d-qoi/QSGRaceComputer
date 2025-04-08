@@ -2,8 +2,12 @@ from typing import final, override
 from qsgrc.messages.core import BaseMessage
 
 
+class LoRaConfig(BaseMessage):
+    subject: str = "config.lora"
+
+
 @final
-class LoRaConfigParams(BaseMessage):
+class LoRaConfigParams(LoRaConfig):
     leader = "CL1"
     name = "PARAMS"
 
@@ -33,7 +37,7 @@ class LoRaConfigParams(BaseMessage):
 
 
 @final
-class LoRaConfigPassword(BaseMessage):
+class LoRaConfigPassword(LoRaConfig):
     leader = "CL2"
     name = "PASS"
 
@@ -42,7 +46,7 @@ class LoRaConfigPassword(BaseMessage):
 
 
 @final
-class LoRaConfigNetwork(BaseMessage):
+class LoRaConfigNetwork(LoRaConfig):
     leader = "CL3"
     name = "NET"
     network_id: int

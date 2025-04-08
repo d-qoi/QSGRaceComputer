@@ -1,7 +1,7 @@
 from typing import Dict, Type
 from re import compile
 from qsgrc.messages.alerts import AlertConditions, AlertMessage, AlertConfigMessage, AlertConditionSet
-from qsgrc.messages.rlyr896 import LoRaConfigParams, LoRaConfigPassword
+from qsgrc.messages.rlyr896 import LoRaConfigNetwork, LoRaConfigParams, LoRaConfigPassword
 from qsgrc.messages.core import BaseMessage, OBD2Datapoint, RequestConfig
 from qsgrc.messages.core import SSEMessage
 
@@ -11,6 +11,7 @@ MESSAGE_REGISTERY: Dict[str, Type[BaseMessage]] = {
     AlertConditionSet.leader: AlertConditionSet,
     AlertConfigMessage.leader: AlertConfigMessage,
     AlertMessage.leader: AlertMessage,
+    LoRaConfigNetwork.leader: LoRaConfigNetwork,
     LoRaConfigParams.leader: LoRaConfigParams,
     LoRaConfigPassword.leader: LoRaConfigPassword,
     OBD2Datapoint.leader: OBD2Datapoint,
@@ -34,6 +35,7 @@ __all__ = [
     "AlertConfigMessage",
     "AlertMessage",
     "BaseMessage",
+    "LoRaConfigNetwork",
     "LoRaConfigParams",
     "LoRaConfigPassword",
     "OBD2Datapoint",

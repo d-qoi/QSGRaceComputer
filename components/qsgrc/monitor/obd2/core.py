@@ -23,20 +23,20 @@ logger.setLevel(logging.DEBUG)
 
 CommandCallback = Callable[[OBDResponse], None] | None
 CommandTuple = tuple[str, CommandCallback]
-ResponseTuple = tuple[str, Any]
+ResponseTuple = tuple[str, OBDResponse]
 
 
 class OBD2Monitor(OBD):
     def __init__(
         self,
-        portstr=None,
+        portstr: str | None = None,
         baudrate=None,
         protocol=None,
-        fast=True,
-        timeout=0.1,
-        check_voltage=True,
-        start_low_power=False,
-        delay_cmds=0.25,
+        fast: bool = True,
+        timeout: float = 0.1,
+        check_voltage: bool = True,
+        start_low_power: bool = False,
+        delay_cmds: float = 0.25,
     ):
         self.__tasks: list[Task] = []
         self.__running: bool = False
@@ -169,7 +169,7 @@ class OBD2Monitor(OBD):
         logger.debug(f"Waiting for oneshot response: {command}")
         _ = await wait_for(oneshot_event.wait(), 5)
         logger.debug(f"Received oneshot response for: {command}")
-        assert result is not  None
+        assert result is not None
         return cast(OBDResponse, result)  # We know it's not None after the event
 
     async def responses(self) -> ResponseTuple:
