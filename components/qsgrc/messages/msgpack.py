@@ -108,82 +108,50 @@ class MsgPack:
         # If count = 0, single packet
         try:
             data = Packet.unpack(msg)
-            # Data is single packet
+
             if data.count == 0:
                 logger.debug(f"Processing single packet with tag {data.tag}")
-                buffered_data = self.buffers.get(data.tag, None)
 
-                # Single Message
-                if buffered_data is not None:
-                    logger.warning(
-                        f"Received single packet with tag {data.tag} that already has a buffer, clearing buffer"
-                    )
+                if data.tag in self.buffers:
+                    logger.warning(f"Clearing existing buffer for tag {data.tag}")
                     del self.buffers[data.tag]
 
-                logger.debug(f"Forwarding single packet data, length={len(data.data)}")
                 await self.processed_data.put(data.data)
 
                 if data.tag >= self.ack_threshold:
-                    logger.debug(f"Sending ACK for single packet with tag {data.tag}")
                     await self.ack_stream.put(data.tag)
                 return
 
-            # Split message packet
-            logger.debug(
-                f"Processing fragment {data.count}/{data.total} with tag {data.tag}"
-            )
+            # Multi-packet handling
+            logger.debug(f"Processing fragment {data.count}/{data.total} with tag: {data.tag}")
 
-            # Initialize buffered data if needed
-            buffered_data = self.buffers.get(data.tag, None)
-            if buffered_data is None or buffered_data[1] != data.total:
-                logger.info(
-                    f"Starting new buffer for fragmented message with tag {data.tag}, expecting {data.total} fragments"
-                )
-                buffered_data = (0, data.total, [""] * data.total)
+            if data.tag not in self.buffers or self.buffers[data.tag][1] != data.total:
+                self.buffers[data.tag] = (0, data.total, [""] * data.total)
+                logger.info(f"New buffer for tag: {data.tag}, expecting {data.total} fragments")
 
-            received, total, data_buffer = buffered_data
-            received += 1
+            received, total, data_buffer = self.buffers[data.tag]
+            if -0 < data.count <= total:
+                data_buffer[data.count - 1] = data.data
+                received = sum(1 for packet in data_buffer if packet)
 
-            if data.count > received:
-                logger.warning("Count and received mismatch, may have dropped a packet")
-
-            # Store this fragment (count is 1-based)
-            logger.debug(
-                f"Storing fragment {data.count}/{total} with tag {data.tag}, {received}/{total} received"
-            )
-            data_buffer[data.count - 1] = data.data
-
-            # Check if message is complete
-            if total == data.count or received == total:
-                if all([len(packet) for packet in data_buffer]):
-                    complete_message = "".join(data_buffer)
-                    logger.info(
-                        f"Message with tag {data.tag} complete ({len(complete_message)} bytes), forwarding"
-                    )
-                    await self.processed_data.put(complete_message)
+                if received == total:
+                    completed_message = "".join(data_buffer)
+                    logger.info(f"Message with tag ({data.tag}) completed ({len(completed_message)} bytes)")
+                    await self.processed_data.put(completed_message)
                     del self.buffers[data.tag]
                 else:
-                    logger.debug(
-                        f"Not all fragments received yet for tag {data.tag}, still waiting"
-                    )
                     self.buffers[data.tag] = (received, total, data_buffer)
+                    logger.debug(f"Buffer for tag {data.tag}: {received}/{total}, expecting {data.total} fragments")
+
             else:
-                # Save updated buffer
-                logger.debug(
-                    f"Updated buffer for tag {data.tag}: {received}/{total} fragments received"
-                )
-                self.buffers[data.tag] = (received, total, data_buffer)
+                logger.warning(f"Invalid fragment {data.count} for tag {data.tag}")
 
-            # Send ACK if needed
             if data.tag >= self.ack_threshold:
-                logger.debug(f"Sending ACK for fragment with tag {data.tag}")
                 await self.ack_stream.put(data.tag)
-
         except ValueError as e:
             logger.error(f"Error parsing packet '{msg}': {e}")
-            return
         except Exception as e:
-            logger.error(f"Unexpected error processing packet '{msg}': {e}")
+            logger.error(f"Unexpected error processing packet: '{msg}': {e}", exc_info=True)
 
     async def __process_inbound_packet(self, msg: str) -> None:
         logger.debug(

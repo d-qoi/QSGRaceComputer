@@ -53,7 +53,6 @@ from asyncio import (
 )
 from enum import Enum
 import re
-from typing import Optional
 from hashlib import sha256
 
 import serial_asyncio
@@ -91,15 +90,15 @@ class RLYR896(object):
     ):
         self.url = url
         self.baudrate = baudrate
-        self.rec_task: Optional[Task] = None
-        self.rec_event = Event()
+        self.rec_task: Task | None = None
+        self.running = False
         self.received_messages = message_steam
         self.command_response = Queue()
         self.send_lock = Lock()
         self.ready = False
 
-        self.reader: Optional[StreamReader] = None
-        self.writer: Optional[StreamWriter] = None
+        self.reader: StreamReader | None = None
+        self.writer: StreamWriter | None = None
 
         self.baudrate = baudrate
         self.address = address
@@ -127,9 +126,9 @@ class RLYR896(object):
             return
         try:
             async with timeout(5.0):
-                self.rec_event.clear()
+                self.running = False
                 try:
-                    await self.ping()
+                    _ = await self.ping()
                 except errors.RecLoopNotRunning:
                     pass
                 except errors.NotReady:
@@ -147,12 +146,12 @@ class RLYR896(object):
             log.debug("Loop is already started")
             return
 
-        self.rec_event.set()
+        self.running = True
         self.rec_task = create_task(self.__rec_loop())
 
         log.debug("Started loop")
         while not self.ready:
-            await self.ping()
+            _ = await self.ping()
             await sleep(1)
         log.debug("Ping succeeded, setting default values")
         await sleep(0.2)
@@ -169,7 +168,7 @@ class RLYR896(object):
 
     async def ping(self) -> bool:
         try:
-            await self.__send("AT", ignore_ready=True)
+            _ = await self.__send("AT", ignore_ready=True)
             self.ready = True
             return True
         except TimeoutError:
@@ -179,7 +178,7 @@ class RLYR896(object):
 
     async def soft_reset(self) -> None:
         self.ready = False
-        await self.__send("AT+RESET", ignore_ready=True)
+        _ = await self.__send("AT+RESET", ignore_ready=True)
 
     async def send(self, address: int, data: str) -> None:
         if not (0 <= address <= 65535):
@@ -193,7 +192,7 @@ class RLYR896(object):
         if data_length > 240:
             raise errors.TXDataOverflowError()
 
-        await self.__send(f"AT+SEND={address},{data_length},{data}")
+        _ = await self.__send(f"AT+SEND={address},{data_length},{data}")
 
     async def set_address(self, address: int, force: bool = False) -> None:
         if not (0 <= address < 65535):
@@ -204,7 +203,7 @@ class RLYR896(object):
 
         self.address = address
 
-        await self.__send(f"AT+ADDRESS={address}")
+        _ = await self.__send(f"AT+ADDRESS={address}")
 
     async def get_address(self) -> int:
         response = await self.__send("AT+ADDRESS?")
@@ -222,7 +221,7 @@ class RLYR896(object):
 
         self.network_id = network_id
 
-        await self.__send(f"AT+NETWORKID={network_id}")
+        _ = await self.__send(f"AT+NETWORKID={network_id}")
 
     async def get_network_id(self) -> int:
         response = await self.__send("AT+NETWORKID?")
@@ -232,12 +231,12 @@ class RLYR896(object):
         return value
 
     async def set_mode(self, mode: RLYR896_MODE) -> None:
-        await self.__send(f"AT+MODE={mode.value}")
+        _ = await self.__send(f"AT+MODE={mode.value}")
 
     async def set_ipr(self, rate: int) -> None:
         if rate not in [300, 1200, 4800, 9600, 28800, 38400, 57600, 115200]:
             raise errors.ATCommandError(message=f"{rate} is not a valid Baud rate")
-        await self.__send(f"AT+IPR={rate}")
+        _ = await self.__send(f"AT+IPR={rate}")
 
     async def get_ipr(self) -> int:
         response = await self.__send("AT+IPR?")
@@ -257,7 +256,7 @@ class RLYR896(object):
             raise errors.ATCommandError(
                 message=f"Parameters aren't quite right: {spreading_factor}, {bandwidth}, {coding_rate}, {preamble}"
             )
-        await self.__send(
+        _ = await self.__send(
             f"AT+PARAMETER={spreading_factor},{bandwidth},{coding_rate},{preamble}"
         )
 
@@ -273,7 +272,7 @@ class RLYR896(object):
         }
 
     async def set_freq(self, freq: RLYR896_FREQ) -> None:
-        await self.__send(f"AT+BAND={freq.value}")
+        _ = await self.__send(f"AT+BAND={freq.value}")
 
     async def get_freq(self) -> RLYR896_FREQ | int:
         response = await self.__send("AT+BAND?")
@@ -284,10 +283,15 @@ class RLYR896(object):
         except ValueError:
             return value
 
-    async def set_pass(self, password: str) -> None:
+    async def set_pass(self, password: str, force: bool = False) -> None:
+        if password == "":
+            return
+        if self.password == password and not force:
+            return
+        self.password = password
         hashed = sha256(password.encode()).hexdigest()[:32]
 
-        await self.__send(f"AT+CPIN={hashed.upper()}")
+        _ = await self.__send(f"AT+CPIN={hashed.upper()}")
 
     async def get_pass(self) -> str:
         resp = await self.__send("AT+CPIN?")
@@ -297,7 +301,7 @@ class RLYR896(object):
         if not (0 <= power < 20):
             raise errors.ATCommandError(message="Power must be between 0 and 20")
 
-        await self.__send(f"AT+CRFOP={power}")
+        _ = await self.__send(f"AT+CRFOP={power}")
 
     async def get_power(self) -> int:
         response = await self.__send("AT+CRFOP?")
@@ -344,7 +348,7 @@ class RLYR896(object):
             return data
 
     async def __rec_loop(self):
-        while self.rec_event.is_set():
+        while self.running:
             if self.reader is None:
                 await sleep(1)
                 continue

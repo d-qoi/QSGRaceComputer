@@ -9,7 +9,9 @@ from asyncio import (
     sleep,
     create_task,
 )
+from pathlib import Path
 import signal
+import json
 import time
 
 import nats
@@ -23,6 +25,7 @@ from qsgrc.RYLR896 import RLYR896_MODE, RLYR896_FREQ, RLYR896, errors
 from qsgrc.messages import LoRaConfigParams, LoRaConfigPassword, unpack
 from qsgrc.messages.core import RequestConfig
 from qsgrc.messages.msgpack import MsgPack, ACK
+from qsgrc.messages.rlyr896 import LoRaConfigNetwork
 
 logger = get_logger("service.lora")
 
@@ -77,6 +80,58 @@ class LoRa_Service:
         self.sub_config_pass: Subscription
         self.sub_request_config: Subscription
         self.sub_transmit: Subscription
+        self.sub_config_network: Subscription
+
+    def __load_saved_config(self) -> None:
+        """Load saved configuration from persistent storage"""
+        try:
+            if config.config_file.exists():
+                with open(config.config_file, "r") as f:
+                    saved_config = json.load(f)
+
+                    # Apply saved configuration if available
+                    if "address" in saved_config:
+                        await self.lora_con.set_address(saved_config["address"])
+
+                    if "network_id" in saved_config:
+                        await self.lora_con.set_network_id(saved_config["network_id"])
+
+                    # Apply other parameters...
+                    if "params" in saved_config:
+                        await self.lora_con.set_parameters(
+                            saved_config["params"]["spreading_factor"],
+                            saved_config["params"]["bandwidth"],
+                            saved_config["params"]["coding_rate"],
+                            saved_config["params"]["preamble"],
+                        )
+
+                    if "password" in saved_config:
+                        await self.lora_con.set_pass(saved_config["password"])
+
+                    logger.info(f"Loaded saved configuration: {saved_config}")
+        except Exception as e:
+            logger.error(f"Error loading saved configuration: {e}")
+
+    def __save_config(self) -> None:
+        """Save current configuration to persistent storage"""
+        try:
+            config_to_save = {
+                "address": self.lora_con.address,
+                "network_id": self.lora_con.network_id,
+                "params": {
+                    "spreading_factor": self.lora_con.spreading_factor,
+                    "bandwidth": self.lora_con.bandwidth,
+                    "coding_rate": self.lora_con.coding_rate,
+                    "preamble": self.lora_con.preamble,
+                },
+                "password": self.lora_con.password,
+            }
+
+            with open(config.config_file, "w") as f:
+                json.dump(config_to_save, f)
+                logger.info(f"Saved configuration to {str(config.config_file)}")
+        except Exception as e:
+            logger.error(f"Error saving configuration: {e}")
 
     async def __ack_received(self, tag: int):
         if tag in self.pending_acks:
@@ -172,10 +227,18 @@ class LoRa_Service:
             params.coding_rate,
             params.preamble,
         )
+        self.__save_config()
+
+    async def config_handler_network(self, msg: Msg):
+        params = LoRaConfigNetwork.unpack(msg.data.decode())
+        await self.lora_con.set_network_id(params.network_id)
+        await self.lora_con.set_address(params.address)
+        self.__save_config()
 
     async def config_handler_password(self, msg: Msg):
         params = LoRaConfigPassword.unpack(msg.data.decode())
         await self.lora_con.set_pass(params.value)
+        self.__save_config()
 
     async def config_handler_get_config(self, msg: Msg):
         try:
@@ -212,6 +275,7 @@ class LoRa_Service:
         while self.running:
             try:
                 data = await wait_for(self.incomming_stream.get(), 0.5)
+                self.incomming_stream.task_done()
                 message = unpack(data)
                 await self.nc.publish(message.leader, str(message).encode())
             except TimeoutError:
@@ -235,6 +299,7 @@ class LoRa_Service:
         self.sub_config_params.unsubscribe()
         self.sub_config_pass.unsubscribe()
         self.sub_request_config.unsubscribe()
+        self.sub_config_network.unsubscribe()
 
         await self.lora_con.stop()
         await self.nc.close()
@@ -243,7 +308,7 @@ class LoRa_Service:
         loop = get_running_loop()
         signals = (signal.SIGTERM, signal.SIGINT)
         for sig in signals:
-            loop.add_signal_handler(sig, self.stop)
+            loop.add_signal_handler(sig, lambda: loop.create_task(self.stop()))
 
         self.nc = await nats.connect(str(config.nats_url))
 
@@ -258,6 +323,7 @@ class LoRa_Service:
 
         await self.lora_con.connect()
         await self.lora_con.start()
+        self.__load_saved_config()
 
         self.running = True
 
@@ -272,6 +338,9 @@ class LoRa_Service:
         )
         self.sub_request_config = await self.nc.subscribe(
             RequestConfig.leader, cb=self.config_handler_get_config
+        )
+        self.sub_config_network = await self.nc.subscribe(
+            LoRaConfigNetwork.leader, cb=self.config_handler_network
         )
 
         self.tasks.append(create_task(self.__resend_monitor_task()))
