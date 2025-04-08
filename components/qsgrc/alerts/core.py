@@ -8,16 +8,17 @@ from qsgrc.messages import AlertMessage, AlertConditions
 logger = get_logger("alerts")
 
 
+
 MonitorConditions = tuple[AlertConditions, bool, float]
 
 
 class MonitorAlerts:
     def __init__(
-        self, name: str, out_stream: Queue, in_stream: Queue | None = None
+        self, name: str, out_stream: Queue[AlertMessage], in_stream: Queue[tuple[str, float]] | None = None
     ) -> None:
         self.name: str = name
-        self.out_stream = out_stream
-        self.in_stream = in_stream
+        self.out_stream: Queue[AlertMessage] = out_stream
+        self.in_stream: Queue[tuple[str, float]] | None = in_stream
         self.rules: dict[str, MonitorConditions] = {}
         self.alert_conditions: dict[str, bool] = {}
         self.__task = Task | None
@@ -46,9 +47,8 @@ class MonitorAlerts:
 
     async def stop(self):
         pass
-        
 
-    async def __send_alert_update(self, listen_to: str, value: Any) -> None:
+    async def __send_alert_update(self, listen_to: str, value: float) -> None:
         await self.out_stream.put(
             AlertMessage(
                 self.name,
