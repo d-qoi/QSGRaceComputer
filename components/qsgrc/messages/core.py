@@ -31,10 +31,6 @@ class BaseMessage:
     def __repr__(self) -> str:
         return f"{type(self)} :: {self.__str__()}"
 
-@final
-class OBD2Datapoint(BaseMessage):
-    leader = "OBD"
-    subject = "obd2.data"
 
 @final
 class SSEMessage(BaseMessage):

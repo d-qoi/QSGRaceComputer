@@ -1,5 +1,6 @@
 from asyncio import (
     CancelledError,
+    Event,
     Queue,
     Task,
     gather,
@@ -43,6 +44,7 @@ class LoRa_Service:
     request_config: str = "LORA"
 
     running: bool
+    safe_to_exit: Event
     immediate_queue: Queue[str]
     high_priority_queue: Queue[str]
     low_priority_queue: Queue[str]
@@ -57,7 +59,7 @@ class LoRa_Service:
 
     def __init__(self) -> None:
         self.tasks = []
-
+        self.safe_to_exit = Event()
         self.running = False
         self.immediate_queue = Queue()
         self.high_priority_queue = Queue()
@@ -80,6 +82,7 @@ class LoRa_Service:
         self.lora_con: RLYR896
         self.sub_config: Subscription
         self.sub_transmit: Subscription
+        self.sub_config_request: Subscription
 
     async def __load_saved_config(self) -> None:
         """Load saved configuration from persistent storage"""
@@ -217,13 +220,14 @@ class LoRa_Service:
 
                 if packet == "":
                     await sleep(0.25)
-                else:
-                    try:
-                        logger.debug(f"Transmitting packet: {packet}")
-                        await self.lora_con.send(config.lora_target_address, packet)
-                    except errors.ATCommandError as e:
-                        logger.error(f"Lora Send Error: {e}")
-                    await sleep(0.1)
+                    continue
+
+                try:
+                    logger.debug(f"Transmitting packet: {packet}")
+                    await self.lora_con.send(config.lora_target_address, packet)
+                except errors.ATCommandError as e:
+                    logger.error(f"Lora Send Error: {e}")
+                await sleep(0.1)
             except CancelledError:
                 logger.warning("Transmit Task Canceled")
             except Exception as e:
@@ -325,6 +329,7 @@ class LoRa_Service:
         self.tasks = []
         await self.sub_transmit.unsubscribe()
         await self.sub_config.unsubscribe()
+        await self.sub_config_request.unsubscribe()
 
         await self.lora_con.stop()
         await self.nc.close()
@@ -360,14 +365,18 @@ class LoRa_Service:
         self.sub_config = await self.nc.subscribe(
             LoRaConfigParams.subject, cb=self.config_handler
         )
+        self.sub_config_request = await self.nc.subscribe(
+            RequestConfig.subject, cb=self.request_config
+        )
 
         self.tasks.append(create_task(self.__resend_monitor_task()))
         self.tasks.append(create_task(self.__send_ack_task()))
         self.tasks.append(create_task(self.__transmit_task()))
         self.tasks.append(create_task(self.__receive_handler_task()))
 
-        _ = await wait([*self.tasks])
         logger.info("LoRa Service tasks started.")
+        await self.safe_to_exit.wait()
+        logger.info("LoRa Service Finished")
 
 
 def main():

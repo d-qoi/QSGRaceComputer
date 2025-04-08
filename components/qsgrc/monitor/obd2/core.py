@@ -21,9 +21,9 @@ from qsgrc.log import get_logger
 logger = get_logger("mon.obd2")
 logger.setLevel(logging.DEBUG)
 
-CommandCallback = Callable[[OBDResponse], None] | None
-CommandTuple = tuple[str, CommandCallback]
 ResponseTuple = tuple[str, OBDResponse]
+CommandCallback = Callable[[str, OBDResponse], None] | None
+CommandTuple = tuple[str, CommandCallback]
 
 
 class OBD2Monitor(OBD):
@@ -43,8 +43,8 @@ class OBD2Monitor(OBD):
         self.__delay_cmds: float = delay_cmds
         self.__command_response: Queue[ResponseTuple] = Queue()
         # command queues
-        self.high_priority: list[CommandTuple] = []
-        self.low_priority: list[CommandTuple] = []
+        self.high_priority: dict[str, CommandCallback] = {}
+        self.low_priority: dict[str, CommandCallback] = {}
         self.oneshot_queue: Queue[CommandTuple] = Queue()
 
         logger.info(
@@ -102,20 +102,22 @@ class OBD2Monitor(OBD):
 
     def add_high_priority(self, command: str, callback: CommandCallback = None) -> bool:
         """Add a command to the high priority list"""
-        if not any(cmd == command for cmd, _ in self.high_priority):
+        if command not in self.high_priority:
             logger.debug(f"Adding high priority command: {command}")
-            self.high_priority.append((command, callback))
+            self.high_priority[command] = callback
             return True
-        logger.debug(f"High priority command already exists: {command}")
+        logger.debug(f"High priority command already exists: {command}, updating")
+        self.high_priority[command] = callback
         return False
 
     def add_low_priority(self, command: str, callback: CommandCallback = None) -> bool:
         """Add a command to the low priority list"""
-        if not any(cmd == command for cmd, _ in self.low_priority):
+        if command not in self.low_priority:
             logger.debug(f"Adding low priority command: {command}")
-            self.low_priority.append((command, callback))
+            self.low_priority[command] = callback
             return True
         logger.debug(f"Low priority command already exists: {command}")
+        self.low_priority[command] = callback
         return False
 
     def clear_high_priority(self) -> None:
@@ -130,29 +132,23 @@ class OBD2Monitor(OBD):
 
     def remove_high_priority(self, command: str) -> bool:
         """Remove a command from the high priority list"""
-        length = len(self.high_priority)
-        self.high_priority = [
-            (cmd, callback) for (cmd, callback) in self.high_priority if cmd != command
-        ]
-        removed = length != len(self.high_priority)
-        if removed:
+        if command in self.high_priority:
+            del self.high_priority[command]
             logger.debug(f"Removed high priority command: {command}")
+            return True
         else:
             logger.debug(f"High priority command not found for removal: {command}")
-        return removed
+            return False
 
     def remove_low_priority(self, command: str) -> bool:
         """Remove a command from the low priority list"""
-        length = len(self.low_priority)
-        self.low_priority = [
-            (cmd, callback) for (cmd, callback) in self.low_priority if cmd != command
-        ]
-        removed = length != len(self.low_priority)
-        if removed:
-            logger.debug(f"Removed low priority command: {command}")
+        if command in self.low_priority:
+            del self.low_priority[command]
+            logger.debug(f"Removed Low priority command: {command}")
+            return True
         else:
             logger.debug(f"Low priority command not found for removal: {command}")
-        return removed
+            return False
 
     async def oneshot(self, command: str) -> OBDResponse:
         """Queue a command to be executed once in the next cycle"""
@@ -160,7 +156,7 @@ class OBD2Monitor(OBD):
         result: OBDResponse | None = None
         oneshot_event = Event()
 
-        def callback(response: OBDResponse) -> None:
+        def callback(_, response: OBDResponse) -> None:
             nonlocal result
             result = response
             oneshot_event.set()
@@ -208,8 +204,8 @@ class OBD2Monitor(OBD):
                 logger.debug(
                     f"Refilling high priority queue with {len(self.high_priority)} commands"
                 )
-                for command in self.high_priority:
-                    high_priority.put_nowait(command)
+                for command, callback in self.high_priority.items():
+                    high_priority.put_nowait((command, callback))
 
                 # Refill the low priority commands
                 # Commands added/removed before the queue is done do not matter.
@@ -217,8 +213,8 @@ class OBD2Monitor(OBD):
                     logger.debug(
                         f"Refilling low priority queue with {len(self.low_priority)} commands"
                     )
-                    for command in self.low_priority:
-                        low_priority.put_nowait(command)
+                    for command, callback in self.low_priority.items():
+                        low_priority.put_nowait((command, callback))
 
             if next_command:
                 (cmd, callback) = next_command
@@ -228,7 +224,7 @@ class OBD2Monitor(OBD):
                     # If there is a callback, call it
                     if callback:
                         logger.debug(f"Calling callback for command: {cmd}")
-                        callback(resp)
+                        callback(cmd, resp)
                     # Always put response in the response queue.
                     await self.__command_response.put((cmd, resp))
 
@@ -236,7 +232,7 @@ class OBD2Monitor(OBD):
                     logger.error(f"Exception while processing {cmd}: {e}")
                     if callback:
                         logger.debug(f"Calling error callback for: {cmd}")
-                        callback(OBDResponse(cmd, "ERROR"))
+                        callback(cmd, OBDResponse(cmd, "ERROR"))
             else:
                 logger.debug("No commands to process, waiting")
             await sleep(self.__delay_cmds)

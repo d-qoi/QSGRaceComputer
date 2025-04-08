@@ -2,7 +2,7 @@ import obd
 from itertools import chain
 
 
-COMMAND_MAP = {
+COMMAND_MAP: dict[str, str] = {
     "ABSOLUTE_LOAD": "AbsLoad",
     "ACCELERATOR_POS_D": "AccelPosD",
     "ACCELERATOR_POS_E": "AccelPosE",
@@ -181,3 +181,5 @@ COMMAND_MAP = {
 for command in chain(*obd.commands.modes):
     if command and command.name not in COMMAND_MAP:
         COMMAND_MAP[command.name] = command.name
+
+SHORTENED_MAP: dict[str, str] = {v: k for k,v in COMMAND_MAP.items()}
