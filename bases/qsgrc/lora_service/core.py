@@ -5,6 +5,7 @@ from asyncio import (
     gather,
     get_running_loop,
     run,
+    wait,
     wait_for,
     sleep,
     create_task,
@@ -82,7 +83,7 @@ class LoRa_Service:
         self.sub_transmit: Subscription
         self.sub_config_network: Subscription
 
-    def __load_saved_config(self) -> None:
+    async def __load_saved_config(self) -> None:
         """Load saved configuration from persistent storage"""
         try:
             if config.config_file.exists():
@@ -323,7 +324,7 @@ class LoRa_Service:
 
         await self.lora_con.connect()
         await self.lora_con.start()
-        self.__load_saved_config()
+        await self.__load_saved_config()
 
         self.running = True
 
@@ -347,6 +348,8 @@ class LoRa_Service:
         self.tasks.append(create_task(self.__send_ack_task()))
         self.tasks.append(create_task(self.__transmit_task()))
         self.tasks.append(create_task(self.__receive_handler_task()))
+
+        _ = await wait([*self.tasks])
 
 
 def main():
