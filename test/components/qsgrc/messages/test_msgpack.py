@@ -7,9 +7,9 @@ from qsgrc.messages.core import BaseMessage
 
 
 class TestMessage(BaseMessage):
-    leader = "TEST"
+    leader: str = "TEST"
 
-    def __init__(self, value):
+    def __init__(self, value: str):
         super().__init__("test", value)
 
 
@@ -79,7 +79,7 @@ class TestPacket:
     def test_packet_unpack_invalid(self):
         """Test unpacking an invalid packet"""
         with pytest.raises(ValueError):
-            Packet.unpack("invalid")
+            _ = Packet.unpack("invalid")
 
 
 class TestACK:
@@ -177,7 +177,7 @@ class TestMsgPack:
         # Send a small message
         test_msg = TestMessage("small message")
 
-        await msg_pack.split_messages_to_queue(test_msg, out_queue, ack_needed=False)
+        await msg_pack.split_messages_to_queue(test_msg, out_queue, False)
 
         # Check the output
         assert out_queue.qsize() == 1
@@ -201,7 +201,7 @@ class TestMsgPack:
         test_msg = TestMessage(
             "this is a longer message that will be split into multiple packets"
         )
-        await msg_pack.split_messages_to_queue(test_msg, out_queue, ack_needed=True)
+        await msg_pack.split_messages_to_queue(test_msg, out_queue, True)
 
         # Check the output - should be multiple packets
         packet_count = out_queue.qsize()

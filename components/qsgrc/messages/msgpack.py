@@ -62,15 +62,15 @@ AckCallbackType = Callable[[int], Awaitable[None]]
 
 class MsgPack:
     # Tag: received, total, data
-    buffers: Dict[int, Optional[Tuple[int, int, List[str]]]]
+    buffers: dict[int, tuple[int, int, list[str]] | None]
     in_stream: Queue[str]
     processed_data: Queue[str]
     ack_stream: Queue[int]
     ack_callback: AckCallbackType
 
-    ack_threshold = 50
-    max_tag = 100
-    split_length = 220
+    ack_threshold: int = 50
+    max_tag: int = 100
+    split_length: int = 220
 
     def __init__(
         self,
@@ -85,9 +85,9 @@ class MsgPack:
         self.processed_data = processed_data
         self.ack_stream = ack_stream
         self.ack_callback = ack_callback
-        self.running = False
-        self.nack_tag = 1
-        self.ack_tag = self.ack_threshold
+        self.running: bool = False
+        self.nack_tag: int = 1
+        self.ack_tag: int = self.ack_threshold
         self.__tasks: list[Task] = []
         logger.debug(
             f"MsgPack configured with split_length={self.split_length}, ack_threshold={self.ack_threshold}"
@@ -118,7 +118,7 @@ class MsgPack:
                     logger.warning(
                         f"Received single packet with tag {data.tag} that already has a buffer, clearing buffer"
                     )
-                    self.buffers.pop(data.tag)
+                    del self.buffers[data.tag]
 
                 logger.debug(f"Forwarding single packet data, length={len(data.data)}")
                 await self.processed_data.put(data.data)
@@ -161,7 +161,7 @@ class MsgPack:
                         f"Message with tag {data.tag} complete ({len(complete_message)} bytes), forwarding"
                     )
                     await self.processed_data.put(complete_message)
-                    self.buffers.pop(data.tag)
+                    del self.buffers[data.tag]
                 else:
                     logger.debug(
                         f"Not all fragments received yet for tag {data.tag}, still waiting"
@@ -248,24 +248,23 @@ class MsgPack:
         logger.info("Stopping MsgPack message handler")
         self.running = False
 
-        if not self.__tasks:
+        if len(self.__tasks) == 0:
             logger.warning("No tasks to stop")
             return
 
         try:
             logger.debug("Waiting for tasks to complete")
-            await wait_for(gather(*self.__tasks), 3)
+            _ = await wait_for(gather(*self.__tasks), 3)
             logger.info("All tasks stopped gracefully")
         except TimeoutError:
             logger.warning("Timeout waiting for tasks to stop, canceling forcefully")
             for task in self.__tasks:
                 task.cancel()
-                logger.debug(f"Task {task} canceled")
         finally:
             self.__tasks = []
 
     async def split_messages_to_queue(
-            self, data: str, stream: Queue[str], ack_needed: bool, tag: Optional[int] = None
+            self, data: str | BaseMessage, stream: Queue[str], ack_needed: bool, tag: int | None = None
     ) -> int:
         message_type = type(data).__name__
         logger.info(
@@ -273,7 +272,7 @@ class MsgPack:
         )
         if tag is None:
             tag = self.__get_tag(ack_needed)
-        data_string = data
+        data_string = str(data)
         data_length = len(data_string)
 
         logger.debug(
@@ -288,7 +287,7 @@ class MsgPack:
         # Split message into multiple packets
         logger.info(f"Splitting message ({data_length} bytes) into multiple packets")
 
-        packets = []
+        packets: list[str] = []
         packet_0 = data_string[: self.split_length]
         rest = data_string[self.split_length :]
 

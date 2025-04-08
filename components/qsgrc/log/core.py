@@ -8,7 +8,7 @@ logging.basicConfig(
 )
 
 
-def get_logger(name, handler:logging.Handler|None = None) -> logging.Logger:
+def get_logger(name: str, handler:logging.Handler|None = None) -> logging.Logger:
     logger = logging.getLogger(name)
 
     if handler:

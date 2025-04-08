@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Union
+from typing import final, override
 from qsgrc.messages.core import BaseMessage
 
 
@@ -11,13 +11,15 @@ class AlertConditions(Enum):
     EQ = 5
 
 
+@final
 class AlertMessage(BaseMessage):
     leader = "A"
+    subject = "alert.trigger"
     listen_to: str = ""
     triggered: bool = False
-    val: Union[float, str] = ""
+    val: float | str = ""
 
-    def __init__(self, name: str, listen_to: str, triggered: bool = False, val: Union[float, str] = ""):
+    def __init__(self, name: str, listen_to: str, triggered: bool = False, val: float | str  = ""):
         val = val or ""
 
         self.val = val
@@ -27,6 +29,7 @@ class AlertMessage(BaseMessage):
         value = f"{listen_to}@{int(triggered)}@{val}"
         super().__init__(name, value)
 
+    @override
     @classmethod
     def unpack(cls, data: str):
         match = cls.match_re.fullmatch(data)
@@ -50,8 +53,10 @@ class AlertMessage(BaseMessage):
         return cls(name, listen_to, bool(int(triggered)), val)
 
 
+@final
 class AlertConfigMessage(BaseMessage):
     leader = "AC"
+    subject = "config.alert"
     listen_to: str = ""
     condition: AlertConditions
     threshold: float = 0.0
@@ -69,6 +74,7 @@ class AlertConfigMessage(BaseMessage):
         value = f"{listen_to}@{condition.name}@{threshold}@{msg}"
         super().__init__(name, value)
 
+    @override
     @classmethod
     def unpack(cls, data: str) -> "AlertConfigMessage":
         match = cls.match_re.fullmatch(data)
@@ -96,6 +102,7 @@ class AlertConfigMessage(BaseMessage):
             raise ValueError(f"Invalid format for AlertConfigMessage: {value}") from e
 
 
+@final
 class AlertConditionSet(BaseMessage):
     leader = "ACS"
 

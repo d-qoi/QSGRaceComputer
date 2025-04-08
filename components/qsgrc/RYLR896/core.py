@@ -119,9 +119,11 @@ class RLYR896(object):
             raise errors.ATCommandError("Serial Connection Failed")
 
     async def stop(self) -> None:
-        log.info("Stopping Rec Loop")
+        log.info("Stopping Rec Loop and closing transport.")
         if self.rec_task is None or self.rec_task.done():
             log.info("Task is already done")
+            if self.writer:
+                self.writer.close()
             return
         try:
             async with timeout(5.0):
@@ -136,6 +138,8 @@ class RLYR896(object):
         except TimeoutError:
             log.warning("Timeout Passed... canceling task.")
             self.rec_task.cancel()
+        if self.writer:
+            self.writer.close()
 
     async def start(self) -> None:
         log.info("Starting Rec Loop")
@@ -368,3 +372,4 @@ class RLYR896(object):
                 await self.received_messages.put(data)
             else:
                 await self.command_response.put(data)
+        self.ready = False

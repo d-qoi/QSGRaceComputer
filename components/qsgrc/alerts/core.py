@@ -1,5 +1,4 @@
-from asyncio import Queue
-from typing import Any, Dict, Optional, Tuple
+from asyncio import Queue, Task, create_task, gather, wait_for
 
 from qsgrc.log import get_logger
 from qsgrc.messages import AlertMessage, AlertConditions
@@ -8,24 +7,29 @@ from qsgrc.messages import AlertMessage, AlertConditions
 logger = get_logger("alerts")
 
 
-MonitorConditions = tuple[AlertConditions, bool, float | str]
+MonitorConditions = tuple[AlertConditions, bool, float]
 
 
 class MonitorAlerts:
     def __init__(
-        self, name: str, out_stream: Queue[AlertMessage], in_stream: Queue[tuple[str, float|str]] | None = None
+        self,
+        name: str,
+        out_stream: Queue[AlertMessage],
+        in_stream: Queue[tuple[str, float]] | None = None,
     ) -> None:
         self.name: str = name
         self.out_stream: Queue[AlertMessage] = out_stream
-        self.in_stream: Queue[tuple[str, float|str]] | None = in_stream
+        self.in_stream: Queue[tuple[str, float]] | None = in_stream
         self.rules: dict[str, MonitorConditions] = {}
         self.alert_conditions: dict[str, bool] = {}
+        self.running: bool = False
+        self.__task = Task | None
 
     def add_rule(
         self,
         listen_to: str,
         condition: AlertConditions,
-        threshold: float | str,
+        threshold: float,
         hold: bool = True,
     ) -> None:
         self.rules[listen_to] = (condition, hold, threshold)
@@ -36,7 +40,33 @@ class MonitorAlerts:
     def reset_alert_conditions(self) -> None:
         self.alert_conditions.clear()
 
-    async def __send_alert_update(self, listen_to: str, value: float | str) -> None:
+    async def __loop(self):
+        if self.in_stream is None:
+            self.running = False
+            return
+        while self.running:
+            try:
+                listen_to, value = await wait_for(self.in_stream.get(), 1)
+                await self.check(listen_to, value)
+            except TimeoutError:
+                pass
+
+    async def start(self):
+        if self.in_stream:
+            self.running = True
+            self.__task = create_task(self.__loop())
+
+    async def stop(self):
+        self.running = False
+        if self.__task is None or self.__task.done():
+            return
+        try:
+            await wait_for(gather(self.__task), 5)
+        except TimeoutError:
+            self.__task.cancel()
+            self.__task = None
+
+    async def __send_alert_update(self, listen_to: str, value: float) -> None:
         await self.out_stream.put(
             AlertMessage(
                 self.name,
@@ -46,7 +76,7 @@ class MonitorAlerts:
             )
         )
 
-    async def check(self, listen_to: str, value: float | str) -> None:
+    async def check(self, listen_to: str, value: float) -> None:
         if listen_to not in self.rules:
             return
 
