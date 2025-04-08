@@ -10,11 +10,11 @@ from asyncio import (
 )
 import signal
 import time
-from typing import Dict
 
 import nats
 from nats.aio.msg import Msg
 from nats.aio.client import Client as NATS
+from nats.aio.subscription import Subscription
 
 from qsgrc.config import config
 from qsgrc.log.core import get_logger
@@ -45,11 +45,9 @@ class LoRa_Service:
     processed_data: Queue[str]
     acks_to_send: Queue[int]
 
-    pending_acks: Dict[int, tuple[float, int, str, str]]
+    pending_acks: dict[int, tuple[float, int, str, str]]
 
     msgpack: MsgPack
-    lora_con: RLYR896
-    nc: NATS
 
     def __init__(self) -> None:
         self.tasks = []
@@ -71,6 +69,13 @@ class LoRa_Service:
             self.acks_to_send,
             self.__ack_received,
         )
+
+        self.nc: NATS
+        self.lora_con: RLYR896
+        self.sub_config_params: Subscription
+        self.sub_config_pass: Subscription
+        self.sub_request_config: Subscription
+        self.sub_transmit: Subscription
 
     async def __ack_received(self, tag: int):
         if tag in self.pending_acks:

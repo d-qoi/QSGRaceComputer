@@ -6,11 +6,12 @@ from asyncio import (
     timeout,
     create_task,
     sleep,
+    wait_for,
 )
 
 import logging
 
-from typing import Any, Optional, Callable, Tuple, List, cast
+from typing import Any, Optional, Callable, Tuple, List, cast, override
 
 from obd import OBD, OBDStatus, OBDResponse
 from obd import commands as OBDCommands
@@ -20,9 +21,9 @@ from qsgrc.log import get_logger
 logger = get_logger("mon.obd2")
 logger.setLevel(logging.DEBUG)
 
-CommandCallback = Optional[Callable[[OBDResponse], None]]
-CommandTuple = Tuple[str, CommandCallback]
-ResponseTuple = Tuple[str, Any]
+CommandCallback = Callable[[OBDResponse], None] | None
+CommandTuple = tuple[str, CommandCallback]
+ResponseTuple = tuple[str, Any]
 
 
 class OBD2Monitor(OBD):
@@ -37,13 +38,13 @@ class OBD2Monitor(OBD):
         start_low_power=False,
         delay_cmds=0.25,
     ):
-        self.__tasks: List[Task] = []
+        self.__tasks: list[Task] = []
         self.__running: bool = False
         self.__delay_cmds: float = delay_cmds
         self.__command_response: Queue[ResponseTuple] = Queue()
         # command queues
-        self.high_priority: List[CommandTuple] = []
-        self.low_priority: List[CommandTuple] = []
+        self.high_priority: list[CommandTuple] = []
+        self.low_priority: list[CommandTuple] = []
         self.oneshot_queue: Queue[CommandTuple] = Queue()
 
         logger.info(
@@ -87,6 +88,7 @@ class OBD2Monitor(OBD):
             for task in self.__tasks:
                 task.cancel()
 
+    @override
     def close(self) -> None:
         """Close the connection and cancel all tasks"""
         logger.info("Closing OBD2 monitor connection")
@@ -155,7 +157,7 @@ class OBD2Monitor(OBD):
     async def oneshot(self, command: str) -> OBDResponse:
         """Queue a command to be executed once in the next cycle"""
         logger.debug(f"Executing oneshot command: {command}")
-        result: Optional[OBDResponse] = None
+        result: OBDResponse | None = None
         oneshot_event = Event()
 
         def callback(response: OBDResponse) -> None:
@@ -165,8 +167,9 @@ class OBD2Monitor(OBD):
 
         await self.oneshot_queue.put((command, callback))
         logger.debug(f"Waiting for oneshot response: {command}")
-        await oneshot_event.wait()
+        _ = await wait_for(oneshot_event.wait(), 5)
         logger.debug(f"Received oneshot response for: {command}")
+        assert result is not  None
         return cast(OBDResponse, result)  # We know it's not None after the event
 
     async def responses(self) -> ResponseTuple:
@@ -183,7 +186,7 @@ class OBD2Monitor(OBD):
 
         while self.__running:
             # Get Next Command
-            next_command: Optional[CommandTuple] = None
+            next_command: CommandTuple | None = None
 
             # One Shots get highest priority, and only run once.
             if not self.oneshot_queue.empty():

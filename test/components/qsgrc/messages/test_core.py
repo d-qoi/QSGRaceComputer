@@ -76,7 +76,7 @@ class TestMessageUnpack:
             "AC:test=rpm@1@1500"  # Using AlertConfig leader but AlertMessage format
         )
 
-        with pytest.raises(TypeError) as excinfo:
+        with pytest.raises(ValueError) as excinfo:
             unpack(mismatched)
 
         assert "leader mismatch" in str(excinfo.value) or "Invalid format" in str(
@@ -104,7 +104,7 @@ class TestMessageUnpack:
         # AlertConfigMessage with invalid condition
         malformed = "AC:engine=rpm@INVALID@3000@High RPM"
 
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError):
             unpack(malformed)
 
 
