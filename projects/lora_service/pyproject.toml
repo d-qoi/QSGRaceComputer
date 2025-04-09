@@ -7,18 +7,23 @@ license = ""
 
 packages = [
     {include = "qsgrc/lora_service", from = "../../bases"},
-    {include = "qsgrc/config", from = "../../components"},
-    {include = "qsgrc/log", from = "../../components"},
-    {include = "qsgrc/RYLR896", from = "../../components"},
-    {include = "qsgrc/messages", from = "../../components"},
+    {include = "qsgrc/log",from = "../../components"},
+    {include = "qsgrc/RYLR896",from = "../../components"},
+    {include = "qsgrc/messages",from = "../../components"},
     {include = "qsgrc/monitor",from = "../../components"},
+    {include = "qsgrc/config",from = "../../components"},
 ]
 
 [tool.poetry.dependencies]
 python = "^3.12"
 pyserial = "^3.5"
 pyserial-asyncio = "^0.6"
+pydantic-settings = "^2.7.1"
 nats-py = "^2.10.0"
+
+[project]
+name = "lora_service"
+dynamic = [ "version" ]
 
 [project.scripts]
 qsgrc_lora_service = "qsgrc.lora_service.core:main"

@@ -15,7 +15,18 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.12"
+pyserial-asyncio = "^0.6"
+pydantic-settings = "^2.7.1"
+nats-py = "^2.10.0"
+obd = "^0.7.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "obd2_service"
+dynamic = [ "version" ]
+
+[project.scripts]
+qsgrc_lora_service = "qsgrc.obd2_service.core:main"
