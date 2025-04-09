@@ -15,6 +15,9 @@ packages = [
     {include = "qsgrc/messages",from = "components"},
     {include = "qsgrc/monitor",from = "components"},
     {include = "qsgrc/config",from = "components"},
+    {include = "qsgrc/lora_service",from = "bases"},
+    {include = "qsgrc/alert_service",from = "bases"},
+    {include = "qsgrc/obd2_service",from = "bases"},
 ]
 
 [tool.poetry.dependencies]

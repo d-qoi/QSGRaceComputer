@@ -17,10 +17,9 @@ class AlertMessage(BaseMessage):
     subject = "alert.trigger"
     listen_to: str = ""
     triggered: bool = False
-    val: float | str = ""
+    val: float = 0
 
-    def __init__(self, name: str, listen_to: str, triggered: bool = False, val: float | str  = ""):
-        val = val or ""
+    def __init__(self, name: str, listen_to: str, triggered: bool, val: float):
 
         self.val = val
         self.listen_to = listen_to
@@ -46,9 +45,9 @@ class AlertMessage(BaseMessage):
         # Try to convert to float, or keep as error string
         try:
             val = float(val_str)
-        except ValueError:
+        except ValueError as e:
             # If conversion fails, keep the original string
-            val = val_str
+            raise e
 
         return cls(name, listen_to, bool(int(triggered)), val)
 
@@ -104,5 +103,6 @@ class AlertConfigMessage(BaseMessage):
 
 @final
 class AlertConditionSet(BaseMessage):
+    "Will force an alarm condition named 'name' to reset an alert condition for 'listen_to' as the value"
     leader = "ACS"
 

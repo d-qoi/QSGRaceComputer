@@ -37,8 +37,13 @@ class MonitorAlerts:
     def remove_rule(self, listen_to: str) -> None:
         del self.rules[listen_to]
 
-    def reset_alert_conditions(self) -> None:
+    def clear_all_alert_conditions(self) -> None:
         self.alert_conditions.clear()
+
+    async def clear_alert_condition(self, listen_to: str):
+        if listen_to in self.alert_conditions:
+            del self.alert_conditions[listen_to]
+        await self.__send_alert_update(listen_to, 0)
 
     async def __loop(self):
         if self.in_stream is None:
@@ -72,7 +77,7 @@ class MonitorAlerts:
                 self.name,
                 listen_to,
                 self.alert_conditions.get(listen_to, False),
-                str(value),
+                value,
             )
         )
 

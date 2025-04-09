@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "lora_service"
+version = "0.1.0"
+
+authors = ["Alex Hirschfeld <alex@d-qoi.com>"]
+license = ""
+
+packages = [
+    {include = "qsgrc/lora_service", from = "../../bases"},
+    {include = "qsgrc/config", from = "../../components"},
+    {include = "qsgrc/log", from = "../../components"},
+    {include = "qsgrc/RYLR896", from = "../../components"},
+    {include = "qsgrc/messages", from = "../../components"},
+    {include = "qsgrc/monitor",from = "../../components"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pyserial = "^3.5"
+pyserial-asyncio = "^0.6"
+nats-py = "^2.10.0"
+
+[project.scripts]
+qsgrc_lora_service = "qsgrc.lora_service.core:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -84,8 +84,6 @@ class LoRa_Service:
         self.sub_transmit: Subscription
         self.sub_config_request: Subscription
 
-        self.stop_event = Event()
-
     async def __load_saved_config(self) -> None:
         """Load saved configuration from persistent storage"""
         logger.debug("Loading saved configuration.")
