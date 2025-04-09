@@ -9,6 +9,7 @@ class AlertConditions(Enum):
     LT = 3
     LTE = 4
     EQ = 5
+    REMOVE = 6
 
 
 @final
@@ -59,35 +60,27 @@ class AlertConfigMessage(BaseMessage):
     listen_to: str = ""
     condition: AlertConditions
     threshold: float = 0.0
-    msg: str = ""
+    hold: bool = False
 
     def __init__(
-            self, name: str, listen_to: str, condition: AlertConditions, threshold: float,
-            msg: str = ""
+            self, name: str, listen_to: str, condition: AlertConditions, threshold: float, hold: bool
     ):
         self.listen_to = listen_to
         self.condition = condition
         self.threshold = threshold
-        self.msg = msg
+        self.hold = hold
 
-        value = f"{listen_to}@{condition.name}@{threshold}@{msg}"
+        value = f"{listen_to}@{condition.name}@{threshold}@{int(hold)}"
         super().__init__(name, value)
 
     @override
     @classmethod
     def unpack(cls, data: str) -> "AlertConfigMessage":
-        match = cls.match_re.fullmatch(data)
-        if not match:
-            raise ValueError(f"Data did not match regex: {data}")
-        elif match.group(1) != cls.leader:
-            raise ValueError(f"leader mismatch: {cls.leader} != {match.group(1)}")
-
-        name = match.group(2)
-        value = match.group(3)
+        base = super().unpack(data)
 
         # Parse components using '#' as separator
         try:
-            listen_to, condition_str, threshold_str, msg = value.split("@")
+            listen_to, condition_str, threshold_str, hold_str = value.split("@")
 
             # Convert string to enum
             condition = AlertConditions[condition_str]
@@ -95,10 +88,12 @@ class AlertConfigMessage(BaseMessage):
             # Convert threshold to float
             threshold = float(threshold_str)
 
-            return cls(name, listen_to, condition, threshold, msg)
+            hold = bool(int(hold_str))
+
+            return cls(base.name, listen_to, condition, threshold, hold)
 
         except (ValueError, KeyError) as e:
-            raise ValueError(f"Invalid format for AlertConfigMessage: {value}") from e
+            raise ValueError(f"Invalid format for AlertConfigMessage: {base.value}") from e
 
 
 @final

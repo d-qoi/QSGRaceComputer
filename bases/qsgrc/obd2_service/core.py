@@ -1,4 +1,4 @@
-from asyncio import Event, Task, create_task, gather, run, wait_for, sleep
+from asyncio import Event, Task, create_task, gather, run, wait_for
 
 import nats
 from nats.aio.msg import Msg
@@ -15,7 +15,7 @@ from qsgrc.monitor.obd2 import OBD2Monitor
 logger = get_logger("service.obd2")
 
 
-class OBD2_Service:
+class OBD2Service:
     def __init__(self):
         self.obd: OBD2Monitor = OBD2Monitor()
         self.nc: NATS
@@ -146,5 +146,5 @@ class OBD2_Service:
 
 
 def main():
-    service = OBD2_Service()
+    service = OBD2Service()
     run(service.run())

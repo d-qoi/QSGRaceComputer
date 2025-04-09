@@ -36,7 +36,7 @@ LORA_PARAMS = LoRaConfigParams(10, 9, 1, 4)
 LORA_PASSWORD = LoRaConfigPassword("QSGRC_LORAPASS")
 
 @final
-class LoRa_Service:
+class LoRaService:
     max_retries: int = 3
     high_priority_send_limit: int = 5
     resend_interval: float = 5.0
@@ -381,5 +381,5 @@ class LoRa_Service:
 
 
 def main():
-    service = LoRa_Service()
+    service = LoRaService()
     run(service.run())
