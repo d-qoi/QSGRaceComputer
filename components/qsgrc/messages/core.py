@@ -33,11 +33,6 @@ class BaseMessage:
 
 
 @final
-class SSEMessage(BaseMessage):
-    leader = "SSE"
-    subject = "sse"
-
-@final
 class RequestConfig(BaseMessage):
     leader = "REQ"
     subject = "config.req"

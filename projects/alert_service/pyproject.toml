@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "alert_service"
+version = "0.1.0"
+
+authors = ["Alex Hirschfeld <alex@d-qoi.com>"]
+license = ""
+
+packages = [
+    {include = "qsgrc/alert_service", from = "../../bases"},
+    {include = "qsgrc/messages",from = "../../components"},
+    {include = "qsgrc/monitor",from = "../../components"},
+    {include = "qsgrc/log",from = "../../components"},
+    {include = "qsgrc/alerts",from = "../../components"},
+    {include = "qsgrc/config",from = "../../components"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pydantic-settings = "^2.7.1"
+nats-py = "^2.10.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "alert_service"
+dynamic = [ "version" ]
+
+[project.scripts]
+qsgrc_lora_service = "qsgrc.alert_service.core:main"

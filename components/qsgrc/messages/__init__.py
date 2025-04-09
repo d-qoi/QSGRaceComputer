@@ -1,11 +1,12 @@
-from re import compile
+import re
+
+from qsgrc.messages.core import BaseMessage, RequestConfig
 from qsgrc.messages.alerts import AlertConditions, AlertMessage, AlertConfigMessage, AlertConditionSet
 from qsgrc.messages.rlyr896 import LoRaConfigNetwork, LoRaConfigParams, LoRaConfigPassword
 from qsgrc.messages.obd2 import OBD2Priority, OBD2Config, OBD2ConfigMonitor, OBD2Datapoint
-from qsgrc.messages.core import BaseMessage, RequestConfig
-from qsgrc.messages.core import SSEMessage
+from qsgrc.messages.web_messages import SSEMessage
 
-LEADER_REGEX = compile(r"^([A-Z0-9]+):")
+LEADER_REGEX = re.compile(r"^([A-Z0-9]+):")
 
 MESSAGE_REGISTERY: dict[str, type[BaseMessage]] = {
     AlertConditionSet.leader: AlertConditionSet,
