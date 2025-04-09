@@ -1,5 +1,4 @@
-from asyncio import Task, create_task, gather, run, wait_for, sleep
-from audioop import add
+from asyncio import Event, Task, create_task, gather, run, wait_for, sleep
 
 import nats
 from nats.aio.msg import Msg
@@ -24,6 +23,7 @@ class OBD2_Service:
         self.config: dict[str, tuple[OBD2Priority, bool]]
 
         self.running: bool = False
+        self.stop_event: Event
         self.tasks: set[Task[None]] = set()
         self.sub_config: Subscription
         self.sub_config_request: Subscription
@@ -60,9 +60,17 @@ class OBD2_Service:
             await self.nc.publish("lora.ack.high", str(packet).encode())
 
     async def __config_req_handler(self, msg: Msg):
-        task = create_task(self.dump_config_to_lora())
-        task.add_done_callback(self.tasks.discard)
-        self.tasks.add(task)
+        try:
+            packet = RequestConfig.unpack(msg.data.decode())
+            logger.info(f"Handling getting config for {packet.name}")
+            if packet.name == "OBD2":
+                task = create_task(self.dump_config_to_lora())
+                task.add_done_callback(self.tasks.discard)
+                self.tasks.add(task)
+        except ValueError as e:
+            logger.error(f"Unpack error in get config: {e}")
+        except Exception as e:
+            logger.error(f"Unknown error in get config: {e}")
 
     def update_polling_monitor(self, data: OBD2ConfigMonitor):
         callback = self.__task_publish_lora if data.send_to_pit else None
@@ -103,6 +111,9 @@ class OBD2_Service:
 
         self.running = False
 
+        await self.sub_config.unsubscribe()
+        await self.sub_config_request.unsubscribe()
+
         try:
             _ = await wait_for(gather(*self.tasks), 5)
         except TimeoutError:
@@ -111,15 +122,15 @@ class OBD2_Service:
         finally:
             self.tasks = set()
 
-        await self.sub_config.unsubscribe()
-        await self.sub_config_request.unsubscribe()
         await self.nc.close()
 
         await self.obd.stop()
         self.obd.close()
+        self.stop_event.set()
 
     async def run(self):
         self.running = True
+        self.stop_event.clear()
         self.nc = await nats.connect(str(config.nats_url))
         await self.obd.start()
 
@@ -131,7 +142,7 @@ class OBD2_Service:
         )
 
         self.tasks.add(create_task(self.__task_publish_obd2()))
-        
+        await self.stop_event.wait()
 
 
 def main():

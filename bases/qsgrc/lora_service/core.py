@@ -41,10 +41,10 @@ class LoRa_Service:
     high_priority_send_limit: int = 5
     resend_interval: float = 5.0
     tasks: list[Task]
-    request_config: str = "LORA"
+    request_config_name: str = "LORA"
 
     running: bool
-    safe_to_exit: Event
+    stop_event: Event
     immediate_queue: Queue[str]
     high_priority_queue: Queue[str]
     low_priority_queue: Queue[str]
@@ -59,7 +59,7 @@ class LoRa_Service:
 
     def __init__(self) -> None:
         self.tasks = []
-        self.safe_to_exit = Event()
+        self.stop_event = Event()
         self.running = False
         self.immediate_queue = Queue()
         self.high_priority_queue = Queue()
@@ -83,6 +83,8 @@ class LoRa_Service:
         self.sub_config: Subscription
         self.sub_transmit: Subscription
         self.sub_config_request: Subscription
+
+        self.stop_event = Event()
 
     async def __load_saved_config(self) -> None:
         """Load saved configuration from persistent storage"""
@@ -270,7 +272,7 @@ class LoRa_Service:
         try:
             packet = RequestConfig.unpack(msg.data.decode())
             logger.debug(f"Handling get config for: {packet.name}")
-            if packet.name == "LORA":
+            if packet.name == self.request_config_name:
                 params = await self.lora_con.get_parameters()
                 data = LoRaConfigParams(**params)
                 await self.nc.publish("lora.ack.high", str(data).encode())
@@ -333,6 +335,7 @@ class LoRa_Service:
 
         await self.lora_con.stop()
         await self.nc.close()
+        await self.stop_event.set()
 
     async def run(self):
         logger.info("Starting LoRa Service.")
@@ -366,7 +369,7 @@ class LoRa_Service:
             LoRaConfigParams.subject, cb=self.config_handler
         )
         self.sub_config_request = await self.nc.subscribe(
-            RequestConfig.subject, cb=self.request_config
+            RequestConfig.subject, cb=self.config_handler_get_config
         )
 
         self.tasks.append(create_task(self.__resend_monitor_task()))
@@ -375,7 +378,7 @@ class LoRa_Service:
         self.tasks.append(create_task(self.__receive_handler_task()))
 
         logger.info("LoRa Service tasks started.")
-        await self.safe_to_exit.wait()
+        await self.stop_event.wait()
         logger.info("LoRa Service Finished")
 
 
