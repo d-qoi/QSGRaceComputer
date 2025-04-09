@@ -238,8 +238,7 @@ class LoRaService:
             LORA_PARAMS,
             self.incomming_stream,
             address=config.lora_address,
-            network_id=config.lora_network_id,
-            password=LORA_PASSWORD.value,
+            network_id=config.lora_network_id
         )
 
         await self.lora_con.connect()

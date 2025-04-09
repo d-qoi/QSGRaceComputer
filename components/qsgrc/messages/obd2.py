@@ -4,13 +4,11 @@ from typing import final, override
 from qsgrc.messages.core import BaseMessage
 from qsgrc.monitor.obd2.command_mapping import COMMAND_MAP, SHORTENED_MAP
 
-
 class OBD2Priority(Enum):
     IMMEDIATE = 0
     HIGH = 1
     LOW = 2
     REMOVE = 3
-
 
 @final
 class OBD2Datapoint(BaseMessage):

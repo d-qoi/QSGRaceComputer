@@ -31,6 +31,8 @@ psutil = "^6.1.1"
 pyserial-asyncio = "^0.6"
 fastapi-sse = "^1.1.1"
 nats-py = "^2.10.0"
+hypercorn = "^0.17.3"
+uvloop = "^0.21.0"
 
 [tool.poetry.requires-plugins]
 poetry-multiproject-plugin = "^1.8.3"

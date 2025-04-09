@@ -86,7 +86,7 @@ class RLYR896(object):
         address: int = 10,
         network_id: int = 3,
         freq: RLYR896_FREQ = RLYR896_FREQ.HIGH,
-        password: str = "QSGRC",
+        password: str | None = None,
     ):
         self.url = url
         self.baudrate = baudrate
@@ -283,8 +283,8 @@ class RLYR896(object):
         except ValueError:
             return value
 
-    async def set_pass(self, password: str, force: bool = False) -> None:
-        if password == "":
+    async def set_pass(self, password: str | None, force: bool = False) -> None:
+        if password is None or password == "":
             return
         if self.password == password and not force:
             return
