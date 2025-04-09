@@ -32,6 +32,8 @@ class Config(BaseSettings):
 
     config_file: Path = Path(Path.home() / ".config" / "config.json")
 
+    www_path: Path = Path("/var/www")
+
 
 
 

@@ -5,12 +5,12 @@ from qsgrc.messages import BaseMessage
 class SSEMessage(BaseMessage):
     leader = "SM"
     subject = "sse.message"
-    name = "MSG"
 
     message: str
     display_time: int
 
-    def __init__(self, message: str, display_time: int):
+    def __init__(self, name: str, message: str, display_time: int):
+        self.name = name
         self.message = message
         self.display_time = display_time
         value = f"{display_time}|{message}"
@@ -24,7 +24,8 @@ class SSEMessage(BaseMessage):
             raise ValueError
         elif match.group(1) != cls.leader:
             raise ValueError(f"leader mismatch: {cls.leader} != {match.group(1)}")
+        name = match.group(2)
         value = match.group(3)
         display_time, message = value.split("|", maxsplit=1)
 
-        return cls(message, int(display_time))
+        return cls(name, message, int(display_time))
