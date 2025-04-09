@@ -5,7 +5,13 @@ version = "0.1.0"
 authors = ["Alex Hirschfeld <alex@d-qoi.com>"]
 license = ""
 
-packages = []
+packages = [
+    {include = "qsgrc/obd2_service", from = "../../bases"},
+    {include = "qsgrc/messages",from = "../../components"},
+    {include = "qsgrc/config",from = "../../components"},
+    {include = "qsgrc/monitor",from = "../../components"},
+    {include = "qsgrc/log",from = "../../components"},
+]
 
 [tool.poetry.dependencies]
 python = "^3.12"
