@@ -1,9 +1,12 @@
 from asyncio import sleep, Queue
+import logging
 
 from fastapi import FastAPI
 from fastapi_sse import sse_handler, typed_sse_handler
 from pydantic import BaseModel
 
+log = logging.getLogger("test_server")
+log.setLevel(logging.DEBUG)
 
 class SSEMessage(BaseModel):
     name: str
@@ -35,6 +38,6 @@ async def send_alert(msg: AlertSSEMessage) -> int:
 @app.get("/events")
 @typed_sse_handler()
 async def index():
-    for i in range(10):
-        yield Message(msg=f"index: {i}")
-        await sleep(2)
+    msg = await msg_queue.get()
+    log.info(f"Sending {msg}")
+    yield msg
