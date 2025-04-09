@@ -25,11 +25,17 @@ class LoRaConfigParams(LoRaConfig):
     @override
     @classmethod
     def unpack(cls, data: str) -> "LoRaConfigParams":
-        base = super().unpack(data)
-        if base.name != cls.name:
-            raise ValueError(f"name mismatch: {cls.name} != {base.name}")
+        match = cls.match_re.fullmatch(data)
+        if not match:
+            raise ValueError
+        elif match.group(1) != cls.leader:
+            raise ValueError(f"leader mismatch: {cls.leader} != {match.group(1)}")
+        value = match.group(3)
+        name = match.group(2)
+        if name != cls.name:
+            raise ValueError(f"name mismatch: {cls.name} != {name}")
 
-        parts = base.value.split(".")
+        parts = value.split(".")
         if len(parts) != 4:
             raise ValueError("Invalid parameter format")
 
@@ -41,7 +47,7 @@ class LoRaConfigPassword(LoRaConfig):
     leader = "CL2"
     name = "PASS"
 
-    def __init__(self, value: str):
+    def __init__(self, _, value: str):
         super().__init__(self.name, value)
 
 
@@ -61,11 +67,17 @@ class LoRaConfigNetwork(LoRaConfig):
     @override
     @classmethod
     def unpack(cls, data: str) -> "LoRaConfigNetwork":
-        base = super().unpack(data)
-        if base.name != cls.name:
-            raise ValueError(f"name mismatch: {cls.name} != {base.name}")
+        match = cls.match_re.fullmatch(data)
+        if not match:
+            raise ValueError
+        elif match.group(1) != cls.leader:
+            raise ValueError(f"leader mismatch: {cls.leader} != {match.group(1)}")
+        value = match.group(3)
+        name = match.group(2)
+        if name != cls.name:
+            raise ValueError(f"name mismatch: {cls.name} != {name}")
 
-        parts = base.value.split(".")
+        parts = value.split(".")
         if len(parts) != 2:
             raise ValueError("Invalid parameter format")
 

@@ -11,7 +11,7 @@ from asyncio import (
 
 import logging
 
-from typing import Any, Optional, Callable, Tuple, List, cast, override
+from typing import Callable, cast, override
 
 from obd import OBD, OBDStatus, OBDResponse
 from obd import commands as OBDCommands
@@ -38,7 +38,7 @@ class OBD2Monitor(OBD):
         start_low_power: bool = False,
         delay_cmds: float = 0.25,
     ):
-        self.__tasks: list[Task] = []
+        self.__tasks: list[Task[None]] = []
         self.__running: bool = False
         self.__delay_cmds: float = delay_cmds
         self.__command_response: Queue[ResponseTuple] = Queue()

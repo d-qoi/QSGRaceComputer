@@ -19,7 +19,12 @@ class SSEMessage(BaseMessage):
     @override
     @classmethod
     def unpack(cls, data: str) -> "SSEMessage":
-        base = super().unpack(data)
-        display_time, message = base.value.split("|", maxsplit=1)
+        match = cls.match_re.fullmatch(data)
+        if not match:
+            raise ValueError
+        elif match.group(1) != cls.leader:
+            raise ValueError(f"leader mismatch: {cls.leader} != {match.group(1)}")
+        value = match.group(3)
+        display_time, message = value.split("|", maxsplit=1)
 
         return cls(message, int(display_time))

@@ -76,7 +76,13 @@ class AlertConfigMessage(BaseMessage):
     @override
     @classmethod
     def unpack(cls, data: str) -> "AlertConfigMessage":
-        base = super().unpack(data)
+        match = cls.match_re.fullmatch(data)
+        if not match:
+            raise ValueError
+        elif match.group(1) != cls.leader:
+            raise ValueError(f"leader mismatch: {cls.leader} != {match.group(1)}")
+        value = match.group(3)
+        name = match.group(2)
 
         # Parse components using '#' as separator
         try:
@@ -90,10 +96,10 @@ class AlertConfigMessage(BaseMessage):
 
             hold = bool(int(hold_str))
 
-            return cls(base.name, listen_to, condition, threshold, hold)
+            return cls(name, listen_to, condition, threshold, hold)
 
         except (ValueError, KeyError) as e:
-            raise ValueError(f"Invalid format for AlertConfigMessage: {base.value}") from e
+            raise ValueError(f"Invalid format for AlertConfigMessage: {value}") from e
 
 
 @final

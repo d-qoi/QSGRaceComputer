@@ -33,9 +33,14 @@ class OBD2Datapoint(BaseMessage):
     @override
     @classmethod
     def unpack(cls, data: str) -> "OBD2Datapoint":
-        base = super().unpack(data)
-        val, unit = base.value.split("|")
-        return cls(base.name, val, unit)
+        match = cls.match_re.fullmatch(data)
+        if not match:
+            raise ValueError
+        elif match.group(1) != cls.leader:
+            raise ValueError(f"leader mismatch: {cls.leader} != {match.group(1)}")
+        value = match.group(3)
+        val, unit = value.split("|")
+        return cls(cls.name, val, unit)
 
 class OBD2Config(BaseMessage):
     subject: str = "config.obd2"
@@ -64,10 +69,16 @@ class OBD2ConfigMonitor(OBD2Config):
     @override
     @classmethod
     def unpack(cls, data: str) -> "OBD2ConfigMonitor":
-        base = super().unpack(data)
-        if base.name != cls.name:
-            raise ValueError(f"Name Mismatch: {cls.name} != {base.name}")
-        parts = base.value.split(".")
+        match = cls.match_re.fullmatch(data)
+        if not match:
+            raise ValueError
+        elif match.group(1) != cls.leader:
+            raise ValueError(f"leader mismatch: {cls.leader} != {match.group(1)}")
+        value = match.group(3)
+        name = match.group(2)
+        if name != cls.name:
+            raise ValueError(f"Name Mismatch: {cls.name} != {name}")
+        parts = value.split(".")
         if len(parts) != 3:
             raise ValueError(f"Invalid Param Format, expecting 3 parts: {parts}")
 
