@@ -1,7 +1,7 @@
 from asyncio import Queue, gather, wait_for, create_task
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from fastapi_sse import typed_sse_handler
 
@@ -165,11 +165,9 @@ app.mount("/", StaticFiles(directory=config.www_path, html=True), name="index")
 
 
 @app.get("/events")
-@typed_sse_handler()
-async def generated_message():
-    while running:
-        try:
-            message = await wait_for(sse_messages.get(), 1)
-            yield message
-        except TimeoutError:
-            pass
+async def longpoll():
+    try:
+        msg = await wait_for(sse_messages.get(), 5)
+        return msg
+    except TimeoutError:
+        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT)
