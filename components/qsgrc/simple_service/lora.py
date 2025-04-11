@@ -214,6 +214,9 @@ class LoRaService:
         priority: LoRaServicePrority,
     ):
         tag = 0
+        logger.debug(f"Transmitting {"ack needed" if ack else "no ack needed "}")
+        logger.debug(f"Trasmitting packet with {priority}")
+        logger.debug(f"{data}")
         if priority == LoRaServicePrority.IMMEDIATE:
             tag = await self.msgpack.split_messages_to_queue(
                 str(data), self.immediate_queue, ack
@@ -237,13 +240,13 @@ class LoRaService:
         logger.info("Stopping LoRa Service.")
         self.running = False
         try:
-            await wait_for(gather(*self.tasks), 5)
+            _ = await wait_for(gather(*self.tasks), 5)
         except TimeoutError:
             logger.warning(
                 "Timeout waiting for tasks to finish, forcefully cancelling."
             )
             for task in self.tasks:
-                task.cancel()
+                _ = task.cancel()
         self.tasks = []
 
         await self.lora_con.stop()

@@ -1,9 +1,8 @@
 from asyncio import Queue, gather, wait_for, create_task
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, HTTPException, status
 from fastapi.staticfiles import StaticFiles
-from fastapi_sse import typed_sse_handler
 from pydantic import BaseModel
 
 from qsgrc.config import config
@@ -103,20 +102,10 @@ async def send_mesage(msg: SSEMessage) -> None:
     await lora.transmit(lora_packet, True, LoRaServicePrority.HIGH)
 
 
-@app.post("/clear_alert")
-async def clear_alert(name: str, command: str) -> None:
-    if name not in ("warning", "alert"):
-        return status.HTTP_400_BAD_REQUEST
-    lora_packet = AlertConditionSet(name, command)
-    await lora.transmit
-
-
 @app.get("/events")
-@typed_sse_handler()
 async def events():
-    while running:
-        try:
-            message = await wait_for(sse_messages.get(), 1)
-            yield message
-        except TimeoutError:
-            pass
+    try:
+        message = await wait_for(sse_messages.get(), 1)
+        return message
+    except TimeoutError:
+        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT)
