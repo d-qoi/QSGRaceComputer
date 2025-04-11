@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "simple_car"
+version = "0.1.0"
+
+authors = ["Alex Hirschfeld <alex@d-qoi.com>"]
+license = ""
+
+packages = [
+    {include = "qsgrc/simple_car",from = "../../bases"},
+    {include = "qsgrc/alerts",from = "../../components"},
+    {include = "qsgrc/simple_service",from = "../../components"},
+    {include = "qsgrc/config",from = "../../components"},
+    {include = "qsgrc/RYLR896",from = "../../components"},
+    {include = "qsgrc/log",from = "../../components"},
+    {include = "qsgrc/monitor",from = "../../components"},
+    {include = "qsgrc/messages",from = "../../components"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

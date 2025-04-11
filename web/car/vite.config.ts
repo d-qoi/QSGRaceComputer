@@ -8,7 +8,11 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/events": {
-        target: "http://localhost:8000",
+        target: "http://localhost:8000/",
+        changeOrigin: true,
+      },
+      "/events_longpoll": {
+        target: "http://localhost:8000/",
         changeOrigin: true,
       },
     },

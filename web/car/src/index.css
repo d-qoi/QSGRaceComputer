@@ -2,10 +2,10 @@
 
 @layer base {
   html {
-    @apply bg-black;
+    @apply bg-white;
   }
 
   body {
-    @apply bg-black;
+    @apply bg-white;
   }
 }
