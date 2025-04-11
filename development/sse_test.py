@@ -1,7 +1,7 @@
-from asyncio import sleep, Queue
+from asyncio import sleep, Queue, wait_for
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi_sse import sse_handler, typed_sse_handler
 from pydantic import BaseModel
 
@@ -41,3 +41,12 @@ async def index():
     msg = await msg_queue.get()
     log.info(f"Sending {msg}")
     yield msg
+
+
+@app.get("/events_longpoll")
+async def longpoll():
+    try:
+        msg = await wait_for(msg_queue.get(), 5)
+        return msg
+    except TimeoutError:
+        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT)

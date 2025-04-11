@@ -1,10 +1,9 @@
-from asyncio import Queue, wait_for
+from asyncio import Queue, gather, wait_for, create_task
 from contextlib import asynccontextmanager
-from typing import cast
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi_sse import sse_handler, typed_sse_handler
+from fastapi_sse import typed_sse_handler
 
 from pydantic import BaseModel
 
@@ -13,15 +12,14 @@ from qsgrc.config import config
 from qsgrc.log import get_logger
 from qsgrc.messages import BaseMessage, unpack
 from qsgrc.messages.alerts import (
-    AlertConditions,
     AlertConfigMessage,
     AlertMessage,
     AlertConditionSet,
 )
-from qsgrc.messages.obd2 import OBD2ConfigMonitor, OBD2Datapoint, OBD2Priority
+from qsgrc.messages.obd2 import OBD2ConfigMonitor, OBD2Datapoint
 from qsgrc.messages.web_messages import SSEMessage as loraSSEMessage
-from qsgrc.simple_car.lora import LoRaService, LoRaServicePrority
-from qsgrc.simple_car.obd import OBD2Service
+from qsgrc.simple_service.lora import LoRaService, LoRaServicePrority
+from qsgrc.simple_service.obd import OBD2Service
 
 
 log = get_logger("simple_car")
@@ -130,6 +128,7 @@ async def handle_incomming_lora():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global running
     load_config()
     await lora.run()
     await warnings.start()
@@ -137,6 +136,12 @@ async def lifespan(app: FastAPI):
     await obd2.run()
 
     running = True
+
+    tasks = [
+        create_task(handle_incomming_lora()),
+        create_task(redirect_alert_stream()),
+        create_task(redirect_obd2_stream()),
+    ]
 
     yield
 
@@ -146,6 +151,12 @@ async def lifespan(app: FastAPI):
     await warnings.stop()
     await alerts.stop()
     await lora.stop()
+
+    try:
+        _ = await wait_for(gather(*tasks), 5)
+    except TimeoutError:
+        for task in tasks:
+            _ = task.cancel()
 
 
 app = FastAPI(lifespan=lifespan)

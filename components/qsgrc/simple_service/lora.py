@@ -43,11 +43,11 @@ class LoRaService:
     immediate_queue: Queue[str]
     high_priority_queue: Queue[str]
     low_priority_queue: Queue[str]
-    incomming_stream: Queue[str]
 
-    processed_data: Queue[str]
+    unprocessed_messages_queue: Queue[str]
+    processed_data_queue: Queue[str]
+
     acks_to_send: Queue[int]
-
     pending_acks: dict[int, tuple[float, int, LoRaServicePrority, str]]
 
     msgpack: MsgPack
@@ -56,28 +56,38 @@ class LoRaService:
         self.tasks = []
 
         self.running = False
+
         self.immediate_queue = Queue()
         self.high_priority_queue = Queue()
         self.low_priority_queue = Queue()
-        self.incomming_stream = Queue()
 
-        self.received_messages: Queue[BaseMessage] = Queue()
+        self.unprocessed_messages_queue = Queue()
+        self.processed_data_queue = Queue()
 
-        self.processed_data = Queue()
+        self.received_messages: Queue[BaseMessage] = received_message
+
         self.acks_to_send = Queue()
-
         self.pending_acks = {}
 
         self.msgpack = MsgPack(
-            self.incomming_stream,
-            self.processed_data,
+            self.unprocessed_messages_queue,
+            self.processed_data_queue,
             self.acks_to_send,
             self.__ack_received,
         )
 
-        self.lora_con: RLYR896
+        self.lora_con: RLYR896 = RLYR896(
+            str(config.lora_url),
+            LORA_PARAMS,
+            self.unprocessed_messages_queue,
+            address=config.lora_address,
+            network_id=config.lora_network_id,
+        )
 
     async def __ack_received(self, tag: int):
+        '''
+        Handle ack being received, and cleaning up the pending acks dict.
+        '''
         if tag in self.pending_acks:
             logger.info(f"ACK received for {tag}")
             del self.pending_acks[tag]
@@ -97,6 +107,11 @@ class LoRaService:
                 logger.error(f"Error while trying to send ACK: {e}")
 
     async def __resend_monitor_task(self):
+        '''
+        Will cyckle through the pending messages in the pending_acks list,
+        Will send the message again at high priority if no ack has been received.
+        Will try 3 times to get the message through.
+        '''
         logger.debug("Starting resend monitor task.")
         while self.running:
             try:
@@ -132,6 +147,9 @@ class LoRaService:
                 logger.error(f"Exception in Resend Monitor: {e}")
 
     async def __transmit_task(self):
+        """
+        Cycles through queues and will send in order of priority
+        """
         logger.debug("Starting transmit task.")
         high_priority_count = 0
         while self.running:
@@ -169,6 +187,26 @@ class LoRaService:
             except Exception as e:
                 logger.error(f"Exception in Transmit Task: {e}")
 
+    async def __receive_handler_task(self):
+        """
+        Takes messages that have been recombined into one data string, and unpacks
+        that into received_messages.
+        """
+        logger.debug("Starting receive handler task.")
+        while self.running:
+            try:
+                data = await wait_for(self.processed_data_queue.get(), 0.5)
+                self.processed_data_queue.task_done()
+                message = unpack(data)
+                logger.debug(f"Received message: {message}")
+                await self.received_messages.put(message)
+            except TimeoutError:
+                continue
+            except CancelledError:
+                logger.warning("Receive Handler Canceled")
+            except Exception as e:
+                logger.error(f"Error in Receive Task: {e}")
+
     async def transmit(
         self,
         data: BaseMessage,
@@ -193,22 +231,6 @@ class LoRaService:
             self.pending_acks[tag] = (expiry_time, 0, priority, str(data))
             logger.info(f"Tracking message ({tag}) for ack")
 
-    async def __receive_handler_task(self):
-        logger.debug("Starting receive handler task.")
-        while self.running:
-            try:
-                data = await wait_for(self.incomming_stream.get(), 0.5)
-                self.incomming_stream.task_done()
-                message = unpack(data)
-                logger.debug(f"Received message: {message}")
-                await self.received_messages.put(message)
-            except TimeoutError:
-                continue
-            except CancelledError:
-                logger.warning("Receive Handler Canceled")
-            except Exception as e:
-                logger.error(f"Error in Receive Task: {e}")
-
     async def stop(self):
         if not self.running:
             return
@@ -232,14 +254,6 @@ class LoRaService:
         signals = (signal.SIGTERM, signal.SIGINT)
         for sig in signals:
             loop.add_signal_handler(sig, lambda: loop.create_task(self.stop()))
-
-        self.lora_con = RLYR896(
-            str(config.lora_url),
-            LORA_PARAMS,
-            self.incomming_stream,
-            address=config.lora_address,
-            network_id=config.lora_network_id
-        )
 
         await self.lora_con.connect()
         await self.lora_con.start()

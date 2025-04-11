@@ -6,8 +6,6 @@ authors = ["Alex Hirschfeld <alex@d-qoi.com>"]
 license = "GNU GPLv3"
 readme = "README.md"
 packages = [
-    {include = "qsgrc/mono_car",from = "bases"},
-    {include = "qsgrc/mono_pit",from = "bases"},
     {include = "qsgrc/RYLR896",from = "components"},
     {include = "qsgrc/alerts",from = "components"},
     {include = "qsgrc/event_server",from = "components"},
@@ -18,6 +16,10 @@ packages = [
     {include = "qsgrc/lora_service",from = "bases"},
     {include = "qsgrc/alert_service",from = "bases"},
     {include = "qsgrc/obd2_service",from = "bases"},
+    {include = "qsgrc/car_webserver",from = "bases"},
+    {include = "qsgrc/simple_pit",from = "bases"},
+    {include = "qsgrc/simple_car",from = "bases"},
+    {include = "qsgrc/simple_service",from = "components"},
 ]
 
 [tool.poetry.dependencies]
